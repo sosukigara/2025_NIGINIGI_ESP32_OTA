@@ -12,6 +12,28 @@
 const int servoPin = 25;
 Servo myServo;
 
+// Icons
+#include "icon_data.h"
+
+// Manifest
+const char manifest_json[] PROGMEM = R"json({
+    "name": "にぎにぎ",
+    "short_name": "にぎにぎ",
+    "theme_color": "#000000",
+    "background_color": "#000000",
+    "display": "standalone",
+    "orientation": "portrait",
+    "scope": "/",
+    "start_url": "/",
+    "icons": [
+        {
+            "src": "/icon.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        }
+    ]
+})json";
+
 // Movement State Machine
 enum MoveState { IDLE, SQUEEZING, RETURNING };
 MoveState currentState = IDLE;
@@ -25,6 +47,10 @@ int startMoveAngle = 270;
 int targetMoveAngle = 270;
 int minAngleLimit = 90; // Default Safe Limit (270=Open, 0=Closed)
 unsigned long returnDuration = 100; // Default Return Speed (ms) - 0.1s is fastest recommended
+
+// Stats
+int totalCount = 0;
+float totalDuration = 0.0;
 
 Preferences prefs;
 #include <map>
@@ -112,9 +138,62 @@ void handleSave() {
     
     if (saved) {
         server.send(200, "text/plain", "Saved");
+    if (saved) {
+        server.send(200, "text/plain", "Saved");
     } else {
         server.send(400, "text/plain", "No args");
     }
+}
+
+void handleGetStats() {
+    String json = "{\"count\": " + String(totalCount) + ", \"duration\": " + String(totalDuration, 2) + "}";
+    server.send(200, "application/json", json);
+}
+
+void handleSyncStats() {
+    if (server.hasArg("plain")) {
+        String body = server.arg("plain");
+        // Simple manual parsing or assume format
+        // Expected: {"count": 123, "duration": 45.6}
+        // Basic parsing:
+        int cStart = body.indexOf("\"count\":");
+        int dStart = body.indexOf("\"duration\":");
+        
+        if (cStart != -1) {
+            int valStart = cStart + 8;
+            int valEnd = body.indexOf(",", valStart);
+            if (valEnd == -1) valEnd = body.indexOf("}", valStart);
+            int clientCount = body.substring(valStart, valEnd).toInt();
+            
+            if (clientCount > totalCount) {
+                totalCount = clientCount;
+                prefs.putInt("total_count", totalCount);
+            }
+        }
+        
+        if (dStart != -1) {
+            int valStart = dStart + 11;
+            int valEnd = body.indexOf(",", valStart);
+            if (valEnd == -1) valEnd = body.indexOf("}", valStart);
+            float clientDur = body.substring(valStart, valEnd).toFloat();
+            
+            if (clientDur > totalDuration) {
+                totalDuration = clientDur;
+                prefs.putFloat("total_duration", totalDuration);
+            }
+        }
+        handleGetStats(); // Return updated/current stats
+    } else {
+        server.send(400, "text/plain", "Body required");
+    }
+}
+
+void handleResetStats() {
+    totalCount = 0;
+    totalDuration = 0.0;
+    prefs.putInt("total_count", 0);
+    prefs.putFloat("total_duration", 0.0);
+    server.send(200, "text/plain", "Stats Reset");
 }
 
 void handleDebug() {
@@ -131,10 +210,24 @@ void handleDebug() {
     }
 }
 
+void handleManifest() {
+    server.send(200, "application/manifest+json", manifest_json);
+}
+
+void handleIcon() {
+    server.send_P(200, "image/png", (const char*)icon_png, icon_png_len);
+}
+
 void handleNotFound() {
     // Redirect for Captive Portal
-    server.sendHeader("Location", String("http://") + server.client().localIP().toString(), true);
-    server.send(302, "text/plain", "");
+    // If the host is not the device IP or domain, redirect to root
+    String host = server.hostHeader();
+    if (host != "192.168.4.1" && host != "onigiri.local") {
+         server.sendHeader("Location", String("http://192.168.4.1/"), true);
+         server.send(302, "text/plain", "Redirecting to Captive Portal");
+         return;
+    }
+    server.send(404, "text/plain", "Not Found");
 }
 
 void setup() {
@@ -144,6 +237,8 @@ void setup() {
     prefs.begin("onigiri", false);
     minAngleLimit = prefs.getInt("limit", 90);
     returnDuration = (unsigned long)prefs.getLong("speed", 100);
+    totalCount = prefs.getInt("total_count", 0);
+    totalDuration = prefs.getFloat("total_duration", 0.0);
 
     // Initialize Servo
     myServo.setPeriodHertz(50);
@@ -169,7 +264,14 @@ void setup() {
     server.on("/stop", handleStop);
     server.on("/config", handleConfig);
     server.on("/save", handleSave);
+    server.on("/stats", HTTP_GET, handleGetStats);
+    server.on("/sync_stats", HTTP_POST, handleSyncStats);
+    server.on("/reset_stats", HTTP_POST, handleResetStats);
     server.on("/debug", handleDebug);
+    server.on("/manifest.json", handleManifest);
+    server.on("/icon.png", handleIcon);
+    server.on("/generate_204", handleRoot); // Android Captive Portal
+    server.on("/fwlink", handleRoot); // Microsoft Captive Portal
     server.on("/register_client", []() {
         if (server.hasArg("name")) {
             String ip = server.client().remoteIP().toString();
