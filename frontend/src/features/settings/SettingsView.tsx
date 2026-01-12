@@ -15,13 +15,28 @@ export const SettingsView: React.FC = () => {
     const t = TRANSLATIONS[lang];
     const { vibrate } = useHaptic();
 
-    const [fwDate] = useState('2026/01/11 11:55');
+    const [fwDate, setFwDate] = useState('Connecting...');
     const [debugAngle, setDebugAngle] = useState(270);
     const [activeTheme, setActiveTheme] = useState(theme);
     const [showResetModal, setShowResetModal] = useState(false);
 
     // Sync local theme state with store
     useEffect(() => setActiveTheme(theme), [theme]);
+
+    // Fetch FW Date
+    useEffect(() => {
+        import('../../store/apiClient').then(({ ApiClient }) => {
+            ApiClient.getConfig()
+                .then(data => {
+                    if (data.build) {
+                        setFwDate(data.build);
+                    } else {
+                        setFwDate('Unknown');
+                    }
+                })
+                .catch(() => setFwDate('Offline'));
+        });
+    }, []);
 
     const toggleLang = () => {
         const newLang = lang === 'ja' ? 'km' : 'ja';

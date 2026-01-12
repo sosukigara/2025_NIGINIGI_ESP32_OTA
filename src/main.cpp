@@ -176,7 +176,9 @@ void handleStop() {
 }
 
 void handleConfig() {
-    String json = "{\"limit\": " + String(minAngleLimit) + ", \"speed\": " + String(returnDuration / 1000.0, 1) + "}";
+    String json = "{\"limit\": " + String(minAngleLimit) 
+                + ", \"speed\": " + String(returnDuration / 1000.0, 1) 
+                + ", \"build\": \"" + __DATE__ + " " + __TIME__ + "\"}";
     server.send(200, "application/json", json);
 }
 

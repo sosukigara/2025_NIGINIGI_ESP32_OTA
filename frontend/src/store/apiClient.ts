@@ -32,6 +32,10 @@ export class ApiClient {
     }
   }
 
+  static async getConfig() {
+    return this.get('/config');
+  }
+
   static async getStats() {
     return this.get(`/stats?t=${Date.now()}`);
   }
