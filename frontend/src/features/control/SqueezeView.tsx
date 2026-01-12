@@ -7,12 +7,12 @@ import { Slider } from '../../components/ui/Slider';
 import { Confetti } from '../../components/ui/Confetti'; // Kept for Haptic/other uses if needed, or remove if unused in SqueezeView directly
 import { CelebrationOverlay } from '../../components/ui/CelebrationOverlay';
 import { useHaptic } from '../../hooks/useHaptic';
-import { Play, Pause, Square } from 'lucide-react';
+import { Play, Square, MoveVertical } from 'lucide-react';
 import type { PresetName } from '../../types';
 
 export const SqueezeView: React.FC = () => {
     const { 
-        lang, activePresetName, angle, duration, isSqueezing, activePin,
+        lang, activePresetName, angle, duration, isSqueezing, activePin, servoPins,
         setPreset, setAngle, setDuration, setSqueezing, setActivePin,
         incrementCount, addDuration, incrementPresetStat 
     } = useAppStore();
@@ -42,7 +42,7 @@ export const SqueezeView: React.FC = () => {
         
         try {
             await ApiClient.post(API_ENDPOINTS.squeeze, { 
-                pin: activePin,
+                // pin: undefined, // Send no pin to trigger "ALL" mode in backend
                 angle, 
                 duration 
             });
@@ -94,11 +94,6 @@ export const SqueezeView: React.FC = () => {
         }
     };
 
-    const handlePinClick = (pin: 1 | 2 | 3) => {
-        if (isSqueezing) return;
-        vibrate(40);
-        setActivePin(pin);
-    };
 
     const handleManualAngleChange = (newAngle: number) => {
         setAngle(newAngle);
@@ -115,6 +110,7 @@ export const SqueezeView: React.FC = () => {
                 <div className={`text-xl font-bold mb-2 ${isSqueezing ? 'text-[var(--primary)] animate-pulse' : 'text-gray-400'}`}>
                     {isSqueezing ? t.status_squeezing : t.status_ready}
                 </div>
+
                 <div className="text-6xl font-black font-mono tracking-tighter text-[var(--text-main)]">
                     {isSqueezing ? timeLeft.toFixed(1) : duration.toFixed(1)}<span className="text-2xl ml-1">s</span>
                 </div>

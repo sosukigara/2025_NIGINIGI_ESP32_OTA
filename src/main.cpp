@@ -120,13 +120,9 @@ void handleRoot() {
 }
 
 void handleSqueeze() {
-    int pinIdx = 0;
-    if (server.hasArg("pin")) {
-        pinIdx = server.arg("pin").toInt() - 1; // 1-3 -> 0-2
-    }
-    if (pinIdx < 0 || pinIdx >= 3) pinIdx = 0;
-    activePinIndex = pinIdx;
-
+    // Squeeze now affects ALL pins strictly, as requested.
+    // We ignore "pin" arg for squeezing.
+    
     if (!server.hasArg("angle") || !server.hasArg("duration")) {
         server.send(400, "text/plain", "Missing args");
         return;
@@ -148,7 +144,7 @@ void handleSqueeze() {
     isMoving = true;
     currentState = SQUEEZING;
     
-    Serial.printf("Squeeze Start (Pin %d): %d -> %d in %lu ms\n", activePinIndex + 1, startMoveAngle, targetMoveAngle, moveDuration);
+    Serial.printf("Squeeze Start (ALL PINS): %d -> %d in %lu ms\n", startMoveAngle, targetMoveAngle, moveDuration);
     server.send(200, "text/plain", "Squeeze OK");
 }
 
@@ -157,12 +153,20 @@ void handleReset() {
     if (server.hasArg("pin")) {
         pinIdx = server.arg("pin").toInt() - 1;
     }
-    if (pinIdx < 0 || pinIdx >= 3) pinIdx = 0;
+    
+    // If pin is specified, reset that pin. Otherwise reset ALL.
+    // Given the request "All move when squeezing", reset should also be robust.
+    // However, the user said "Manual adjustment remains". 
+    // Let's make reset align with manual control pinIdx if arg is present, else all?
+    // User request was "When squeezing... move all". 
+    // Let's reset ALL just to be safe and consistent with "simplification".
 
     isMoving = false;
     currentState = IDLE;
-    setServo(pinIdx, 270); // Home position
-    server.send(200, "text/plain", "Reset OK");
+    for (int i = 0; i < 3; i++) {
+        setServo(i, 270); 
+    }
+    server.send(200, "text/plain", "Reset ALL OK");
 }
 
 void handleStop() {
@@ -385,18 +389,19 @@ void loop() {
         
         if (elapsed >= moveDuration) {
             // Reached target of current phase
-            setServo(activePinIndex, targetMoveAngle);
-            
             if (currentState == SQUEEZING) {
                 // Squeeze phase done, start Return phase
+                for(int i=0; i<3; i++) setServo(i, targetMoveAngle); // Ensure target reached
+                
                 currentState = RETURNING;
                 startMoveAngle = targetMoveAngle;
                 targetMoveAngle = 270; // Always return to Open position
-                moveDuration = returnDuration; // User defined return speed
+                moveDuration = returnDuration; 
                 moveStartTime = millis();
                 Serial.printf("Returning to 270 in %lu ms...\n", returnDuration);
             } else {
-                // Done with all movements
+                // Done with all movements (RETURNING finished)
+                for(int i=0; i<3; i++) setServo(i, 270); // Ensure final pos
                 isMoving = false;
                 currentState = IDLE;
                 Serial.println("Locked at 270.");
@@ -405,7 +410,9 @@ void loop() {
             // Interpolating move
             float progress = (float)elapsed / moveDuration;
             int nextAngle = startMoveAngle + (int)((targetMoveAngle - startMoveAngle) * progress);
-            setServo(activePinIndex, nextAngle);
+            
+            // Drive ALL servos simultaneously during SQUEEZING/RETURNING sequence
+            for(int i=0; i<3; i++) setServo(i, nextAngle);
         }
     }
 }
