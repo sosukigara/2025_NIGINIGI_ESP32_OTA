@@ -43,4 +43,8 @@ export class ApiClient {
   static async resetStats() {
     return this.post('/reset_stats', {});
   }
+
+  static async debug(pin: number, angle: number) {
+    return this.post('/debug', { pin, angle });
+  }
 }

@@ -9,7 +9,7 @@ import { Modal } from '../../components/ui/Modal';
 export const SettingsView: React.FC = () => {
     const { 
         lang, setLang, minLimit, returnSpeed, 
-        servoPin, setServoPin, servoOffset, setServoOffset,
+        activePin, setActivePin, servoPins, setServoPins, servoOffset, setServoOffset,
         theme, setTheme, resetData
     } = useAppStore();
     const t = TRANSLATIONS[lang];
@@ -80,18 +80,50 @@ export const SettingsView: React.FC = () => {
             <div className="card p-4">
                  <div className="mb-6">
                     <div className="flex justify-between items-center mb-2">
-                        <label className="font-bold text-[var(--text-main)]">{t.lbl_servo_pin}</label>
-                        <div className="font-bold text-[var(--primary)] text-lg">GPIO {servoPin}</div>
+                        <label className="font-bold text-[var(--text-main)]">{t.lbl_active_pin}</label>
+                        <div className="font-bold text-[var(--primary)] text-lg">Pin {activePin}</div>
                     </div>
                     <div className="flex gap-2">
-                        {[25, 26, 27, 13].map(pin => (
+                        {[1, 2, 3].map(p => (
                             <Button 
-                                key={pin}
-                                variant={servoPin === pin ? 'primary' : 'secondary'}
-                                onClick={() => { setServoPin(pin); vibrate(50); }}
+                                key={p}
+                                variant={activePin === p ? 'primary' : 'secondary'}
+                                onClick={() => { setActivePin(p as 1 | 2 | 3); vibrate(50); }}
                                 className="flex-1 min-h-[48px] text-sm"
                             >
-                                {pin}
+                                {t[`pin_name_${p}` as keyof typeof t] || `Pin ${p}`}
+                            </Button>
+                        ))}
+                    </div>
+
+                    <div className="mt-6 mb-2 flex justify-between items-center">
+                         <label className="text-sm font-bold text-gray-500">GPIO Assignment (Pin {activePin})</label>
+                         <div className="font-mono font-bold text-lg">{servoPins[activePin - 1]}</div>
+                    </div>
+                    <div className="grid grid-cols-4 gap-2">
+                        {[25, 26, 27, 32, 33, 13, 12, 14].map(gpio => (
+                            <Button
+                                key={gpio}
+                                variant={servoPins[activePin - 1] === gpio ? 'primary' : 'secondary'}
+                                className="h-10 text-xs font-mono"
+                                onClick={() => {
+                                    if (servoPins[activePin - 1] === gpio) return;
+                                    vibrate(50);
+                                    
+                                    const newPins = [...servoPins];
+                                    newPins[activePin - 1] = gpio;
+                                    setServoPins(newPins);
+                                    
+                                    import('../../store/apiClient').then(({ ApiClient }) => {
+                                        ApiClient.post('/api/save_settings', {
+                                            pin1: newPins[0],
+                                            pin2: newPins[1],
+                                            pin3: newPins[2]
+                                        }).catch(console.error);
+                                    });
+                                }}
+                            >
+                                {gpio}
                             </Button>
                         ))}
                     </div>
@@ -104,11 +136,8 @@ export const SettingsView: React.FC = () => {
                     onChange={(e) => { setServoOffset(Number(e.target.value)); vibrate(10); }}
                     valueDisplay={`${servoOffset > 0 ? '+' : ''}${servoOffset}°`}
                  />
-            </div>
-
-            <div className="section-title">{t.hdr_advanced_settings}</div>
-            <div className="card p-4">
-                 <div className="mb-4 text-sm font-bold text-gray-500">{t.lbl_servo_debug}</div>
+                 
+                 <div className="mt-6 mb-4 text-sm font-bold text-gray-500 pt-4 border-t border-gray-100">{t.lbl_servo_debug}</div>
                  <Slider 
                     label={t.lbl_angle}
                     min={0} max={270} step={1}
@@ -116,11 +145,17 @@ export const SettingsView: React.FC = () => {
                     onChange={(e) => { 
                         const val = Number(e.target.value);
                         setDebugAngle(val);
-                        // Direct Debug Call
-                        fetch(`/debug?angle=${val}`).catch(()=>{});
+                        // Direct Debug Call using ApiClient
+                        import('../../store/apiClient').then(({ ApiClient }) => {
+                            ApiClient.debug(activePin, val).catch(() => {});
+                        });
                     }}
                     valueDisplay={`${debugAngle}°`}
                  />
+            </div>
+
+            <div className="section-title">{t.hdr_advanced_settings}</div>
+            <div className="card p-4">
           
                  <div className="pt-4 border-t border-white/10 space-y-3">
                     <Button 

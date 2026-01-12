@@ -18,8 +18,9 @@ export const useAppStore = create<AppState>()(
       lang: 'ja',
       presetStats: { soft: 0, normal: 0, hard: 0, barikata: 0, custom: 0 },
       customSettings: { angle: 180, duration: 3.0 },
-      servoPin: 25,
+      servoPins: [25, 26, 27],
       servoOffset: 0,
+      activePin: 1,
       history: [],
       theme: 'system',
 
@@ -133,8 +134,9 @@ export const useAppStore = create<AppState>()(
         };
       }),
       setLang: (lang) => set({ lang }),
-      setServoPin: (servoPin) => set({ servoPin }),
-      setServoOffset: (servoOffset) => set({ servoOffset })
+      setServoPins: (servoPins) => set({ servoPins }),
+      setServoOffset: (servoOffset) => set({ servoOffset }),
+      setActivePin: (activePin) => set({ activePin })
     }),
     {
       name: 'onigiri-storage',
@@ -144,8 +146,9 @@ export const useAppStore = create<AppState>()(
         lang: state.lang,
         presetStats: state.presetStats,
         customSettings: state.customSettings,
-        servoPin: state.servoPin,
+        servoPins: state.servoPins,
         servoOffset: state.servoOffset,
+        activePin: state.activePin,
         theme: state.theme,
         history: state.history
       }),

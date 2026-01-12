@@ -12,8 +12,8 @@ import type { PresetName } from '../../types';
 
 export const SqueezeView: React.FC = () => {
     const { 
-        lang, activePresetName, angle, duration, isSqueezing, 
-        setPreset, setAngle, setDuration, setSqueezing, 
+        lang, activePresetName, angle, duration, isSqueezing, activePin,
+        setPreset, setAngle, setDuration, setSqueezing, setActivePin,
         incrementCount, addDuration, incrementPresetStat 
     } = useAppStore();
     
@@ -29,7 +29,7 @@ export const SqueezeView: React.FC = () => {
     // Initial Sync
     useEffect(() => {
         if (activePresetName !== 'custom') {
-            const p = PRESETS[activePresetName];
+            const p = PRESETS[activePresetName as keyof typeof PRESETS] || PRESETS.normal;
             setPreset(activePresetName, p.angle, p.duration);
         }
     }, []);
@@ -41,7 +41,11 @@ export const SqueezeView: React.FC = () => {
         setTimeLeft(duration);
         
         try {
-            await ApiClient.post(API_ENDPOINTS.squeeze, { angle, duration });
+            await ApiClient.post(API_ENDPOINTS.squeeze, { 
+                pin: activePin,
+                angle, 
+                duration 
+            });
         } catch (e) {
             console.error("Failed to start squeeze", e);
         }
@@ -88,6 +92,18 @@ export const SqueezeView: React.FC = () => {
             const p = PRESETS[name as keyof typeof PRESETS];
             setPreset(name, p.angle, p.duration);
         }
+    };
+
+    const handlePinClick = (pin: 1 | 2 | 3) => {
+        if (isSqueezing) return;
+        vibrate(40);
+        setActivePin(pin);
+    };
+
+    const handleManualAngleChange = (newAngle: number) => {
+        setAngle(newAngle);
+        // Real-time update to hardware
+        ApiClient.debug(activePin, newAngle).catch(() => {});
     };
 
     const presets: PresetName[] = ['soft', 'normal', 'hard', 'barikata', 'custom'];
@@ -148,7 +164,7 @@ export const SqueezeView: React.FC = () => {
                         newAngle = Math.max(0, Math.min(270, newAngle));
                         
                         if (newAngle !== angle) {
-                            setAngle(newAngle);
+                            handleManualAngleChange(newAngle);
                             // Haptic feedback for steps (every 10 degrees?)
                             if (newAngle % 10 === 0) vibrate(5);
                         }
@@ -177,7 +193,7 @@ export const SqueezeView: React.FC = () => {
                         className="text-sm h-12"
                         disabled={isSqueezing}
                     >
-                        {t[`pst_${p}`]}
+                        {t[`pst_${p}` as keyof typeof t] || p}
                     </Button>
                 ))}
             </div>
@@ -188,7 +204,7 @@ export const SqueezeView: React.FC = () => {
                     label={t.lbl_strength} 
                     value={angle} 
                     min={0} max={270} 
-                    onChange={(e) => setAngle(Number(e.target.value))}
+                    onChange={(e) => handleManualAngleChange(Number(e.target.value))}
                     valueDisplay={`${angle}°`}
                 />
                 <div className="h-4" />
@@ -205,7 +221,7 @@ export const SqueezeView: React.FC = () => {
             {showResult && (
                 <CelebrationOverlay 
                     onClose={() => setShowResult(false)}
-                    presetName={t[`pst_${activePresetName}`]}
+                    presetName={t[`pst_${activePresetName}` as keyof typeof t] || activePresetName}
                     duration={duration}
                     count={useAppStore.getState().count}
                     lang={lang}

@@ -5,6 +5,7 @@ export const API_ENDPOINTS = {
   register: '/api/register',
   settings: '/api/settings',
   save_settings: '/api/save_settings',
+  reset_settings: '/api/reset_settings',
   restart: '/api/restart',
   reset: '/api/reset'
 };
@@ -40,6 +41,8 @@ export const TRANSLATIONS = {
     btn_reset_action: 'リセット実行',
     lbl_history: '握り履歴', lbl_no_history: '履歴はまだありません',
     msg_drag_adjust: 'ドラッグして強さを調整',
+    lbl_active_pin: '制御対象',
+    pin_name_1: '開閉1', pin_name_2: '開閉2', pin_name_3: '開閉3',
     lbl_angle: '角度',
     lbl_version: 'バージョン',
     lbl_mon: '月', lbl_tue: '火', lbl_wed: '水', lbl_thu: '木', lbl_fri: '金', lbl_sat: '土', lbl_sun: '日',
@@ -64,6 +67,8 @@ export const TRANSLATIONS = {
       btn_cancel: 'បោះបង់',
       btn_reset_action: 'កំណត់ឡើងវិញ',
       msg_drag_adjust: 'អូសដើម្បីកែតម្រូវ',
+      lbl_active_pin: 'Active Pin',
+      pin_name_1: 'Pin 1', pin_name_2: 'Pin 2', pin_name_3: 'Pin 3',
       lbl_angle: 'មុំ',
       lbl_version: 'Version',
       lbl_mon: 'ច័ន្ទ', lbl_tue: 'អង្គារ', lbl_wed: 'ពុធ', lbl_thu: 'ព្រហ', lbl_fri: 'សុក្រ', lbl_sat: 'សៅរ៍', lbl_sun: 'អាទិត្យ',

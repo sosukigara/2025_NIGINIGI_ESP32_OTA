@@ -9,8 +9,11 @@
 #include "html_content.h"
 
 // Servo Config
-const int servoPin = 25;
-Servo myServo;
+int servoPins[] = {25, 26, 27};
+Servo servos[3];
+int activePinIndex = 0; // 0: Pin 25, 1: Pin 26, 2: Pin 27
+
+
 
 // Icons
 #include "icon_data.h"
@@ -64,13 +67,51 @@ DNSServer dnsServer;
 WebServer server(80);
 
 // Helper: Set Servo Angle (0-270)
-void setServo(int angle) {
+void setServo(int pinIdx, int angle) {
+    if (pinIdx < 0 || pinIdx >= 3) return;
     if (angle < 0) angle = 0;
     if (angle > 270) angle = 270;
-    // Map 0-270 degrees to 500-2500 microseconds (standard for 270 degree servos)
+    // Map 0-270 degrees to 500-2500 microseconds
     int width = map(angle, 0, 270, 500, 2500);
-    myServo.writeMicroseconds(width);
-    currentAngle = angle;
+    servos[pinIdx].writeMicroseconds(width);
+    if (pinIdx == activePinIndex) {
+        currentAngle = angle;
+    }
+}
+
+void handleSaveSettings() {
+    bool restartNeeded = false;
+    
+    // Save Pins
+    if (server.hasArg("pin1")) {
+        int p = server.arg("pin1").toInt();
+        if (p != servoPins[0]) {
+            prefs.putInt("pin1", p);
+            restartNeeded = true;
+        }
+    }
+    if (server.hasArg("pin2")) {
+        int p = server.arg("pin2").toInt();
+        if (p != servoPins[1]) {
+            prefs.putInt("pin2", p);
+            restartNeeded = true;
+        }
+    }
+    if (server.hasArg("pin3")) {
+        int p = server.arg("pin3").toInt();
+        if (p != servoPins[2]) {
+            prefs.putInt("pin3", p);
+            restartNeeded = true;
+        }
+    }
+
+    if (restartNeeded) {
+        server.send(200, "text/plain", "Saved. Restarting...");
+        delay(100);
+        ESP.restart();
+    } else {
+        server.send(200, "text/plain", "No changes affecting restart");
+    }
 }
 
 // HTTP Handlers
@@ -79,6 +120,13 @@ void handleRoot() {
 }
 
 void handleSqueeze() {
+    int pinIdx = 0;
+    if (server.hasArg("pin")) {
+        pinIdx = server.arg("pin").toInt() - 1; // 1-3 -> 0-2
+    }
+    if (pinIdx < 0 || pinIdx >= 3) pinIdx = 0;
+    activePinIndex = pinIdx;
+
     if (!server.hasArg("angle") || !server.hasArg("duration")) {
         server.send(400, "text/plain", "Missing args");
         return;
@@ -100,14 +148,20 @@ void handleSqueeze() {
     isMoving = true;
     currentState = SQUEEZING;
     
-    Serial.printf("Squeeze Start: %d -> %d in %lu ms\n", startMoveAngle, targetMoveAngle, moveDuration);
+    Serial.printf("Squeeze Start (Pin %d): %d -> %d in %lu ms\n", activePinIndex + 1, startMoveAngle, targetMoveAngle, moveDuration);
     server.send(200, "text/plain", "Squeeze OK");
 }
 
 void handleReset() {
+    int pinIdx = 0;
+    if (server.hasArg("pin")) {
+        pinIdx = server.arg("pin").toInt() - 1;
+    }
+    if (pinIdx < 0 || pinIdx >= 3) pinIdx = 0;
+
     isMoving = false;
     currentState = IDLE;
-    setServo(270); // Home position
+    setServo(pinIdx, 270); // Home position
     server.send(200, "text/plain", "Reset OK");
 }
 
@@ -197,13 +251,20 @@ void handleResetStats() {
 }
 
 void handleDebug() {
+    int pinIdx = 0;
+    if (server.hasArg("pin")) {
+        pinIdx = server.arg("pin").toInt() - 1;
+    }
+    if (pinIdx < 0 || pinIdx >= 3) pinIdx = 0;
+
     if (server.hasArg("angle")) {
         int ang = server.arg("angle").toInt();
         if (ang < minAngleLimit) ang = minAngleLimit;
         
         isMoving = false;
         currentState = IDLE;
-        setServo(ang);
+        activePinIndex = pinIdx;
+        setServo(pinIdx, ang);
         server.send(200, "text/plain", "Debug OK");
     } else {
         server.send(400, "text/plain", "Missing angle");
@@ -239,11 +300,18 @@ void setup() {
     returnDuration = (unsigned long)prefs.getLong("speed", 100);
     totalCount = prefs.getInt("total_count", 0);
     totalDuration = prefs.getFloat("total_duration", 0.0);
+    
+    // Load Pin Config
+    servoPins[0] = prefs.getInt("pin1", 25);
+    servoPins[1] = prefs.getInt("pin2", 26);
+    servoPins[2] = prefs.getInt("pin3", 27);
 
-    // Initialize Servo
-    myServo.setPeriodHertz(50);
-    myServo.attach(servoPin, 500, 2500); 
-    setServo(270); // Force initial position to 270 (Normal Open)
+    // Initialize Servos
+    for (int i = 0; i < 3; i++) {
+        servos[i].setPeriodHertz(50);
+        servos[i].attach(servoPins[i], 500, 2500);
+        setServo(i, 270); // Force initial position to 270 (Normal Open)
+    }
 
     // WiFi Access Point
     WiFi.mode(WIFI_AP);
@@ -264,6 +332,7 @@ void setup() {
     server.on("/stop", handleStop);
     server.on("/config", handleConfig);
     server.on("/save", handleSave);
+    server.on("/save_settings", handleSaveSettings);
     server.on("/stats", HTTP_GET, handleGetStats);
     server.on("/sync_stats", HTTP_POST, handleSyncStats);
     server.on("/reset_stats", HTTP_POST, handleResetStats);
@@ -316,7 +385,7 @@ void loop() {
         
         if (elapsed >= moveDuration) {
             // Reached target of current phase
-            setServo(targetMoveAngle);
+            setServo(activePinIndex, targetMoveAngle);
             
             if (currentState == SQUEEZING) {
                 // Squeeze phase done, start Return phase
@@ -336,7 +405,7 @@ void loop() {
             // Interpolating move
             float progress = (float)elapsed / moveDuration;
             int nextAngle = startMoveAngle + (int)((targetMoveAngle - startMoveAngle) * progress);
-            setServo(nextAngle);
+            setServo(activePinIndex, nextAngle);
         }
     }
 }

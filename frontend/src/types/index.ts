@@ -31,8 +31,9 @@ export interface AppState {
   lang: "ja" | "km";
   presetStats: PresetStats;
   customSettings: { angle: number; duration: number };
-  servoPin: number;
+  servoPins: number[];
   servoOffset: number;
+  activePin: 1 | 2 | 3;
   theme: Theme;
 
   // Actions
@@ -42,10 +43,11 @@ export interface AppState {
   setPreset: (name: PresetName, angle?: number, duration?: number) => void;
   setAngle: (angle: number) => void;
   setDuration: (duration: number) => void;
+  setActivePin: (pin: 1 | 2 | 3) => void;
+  setServoPins: (pins: number[]) => void;
   togglePause: () => void;
   incrementPresetStat: (name: string) => void;
   setLang: (lang: "ja" | "km") => void;
-  setServoPin: (pin: number) => void;
   setServoOffset: (offset: number) => void;
   syncData: () => Promise<void>;
   resetData: () => Promise<void>;
