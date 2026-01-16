@@ -112,7 +112,7 @@ body {
 .yt-progress-fill {
   position: absolute; left: 0; top: 0; height: 100%;
   background: var(--yt-red); border-radius: 4px;
-  width: 0%; transition: width 0.1s linear;
+  width: 0%; /* No transition for JS animation */
 }
 .yt-scrubber {
   position: absolute; right: -6px; top: 50%; width: 12px; height: 12px;
@@ -504,12 +504,71 @@ function start() {
   updTimeDisp();
 }
 
-// Global Polling
+// Client-side Interpolation State
+let lastState = null;
+let lastSyncTime = 0;
+
+// High-frequency Render Loop (60fps)
+function render() {
+  requestAnimationFrame(render);
+  
+  if(!lastState) return;
+  if(!isRunning && lastState.state !== 'PAUSED') return;
+  
+  const d = lastState;
+  const now = Date.now();
+  const delta = now - lastSyncTime; // ms since last sync
+  
+  // Cycle Config
+  let t_reach = d.reach;
+  let t_hold = d.hold;
+  let t_rel = 0.3; 
+  let t_cycle = t_reach + t_hold + t_rel;
+  
+  let totalMs = d.total * t_cycle * 1000;
+  let completedMs = d.cycle * t_cycle * 1000;
+  
+  // Intra-cycle project logic
+  // We assume logic: Reach -> Hold -> Release
+  // We can just add delta to the server's elapsed for this state
+  // But wait, if state changes locally before server says so, it might jump.
+  // For simple smoothing: just add delta to the total duration accumulator.
+  
+  // Base offset from state start
+  let baseStateOffset = 0;
+  if(d.state === 'HOLDING') baseStateOffset = t_reach * 1000;
+  if(d.state === 'RELEASING' || d.state === 'WAIT_CYCLE') baseStateOffset = (t_reach + t_hold) * 1000;
+  
+  // Current position in cycle = BaseOffset + ServerElapsed + LocalDelta
+  let currentCycleMs = baseStateOffset + d.elap + delta;
+  
+  // Clamp to cycle duration?
+  // If we overshoot, we shouldn't show > 100% of cycle, but for total progress it implies next cycle.
+  // Ideally we wait for server sync to flip cycle.
+  // Just showing "smooth progress" is the goal.
+  
+  let currentTotalMs = completedMs + currentCycleMs;
+  
+  // Progress %
+  let pct = Math.min((currentTotalMs / totalMs) * 100, 100);
+  document.getElementById('yt-fill').style.width = pct + "%";
+  
+  // Time Display
+  let remMs = Math.max(0, totalMs - currentTotalMs);
+  let remSec = Math.ceil(remMs / 1000);
+  document.getElementById('time-display').innerText = fmtTime(remSec);
+}
+requestAnimationFrame(render);
+
+// Global Polling (Sync every 1s)
 setInterval(() => {
   fetch('/api/status')
     .then(r=>r.json())
     .then(d => {
-      // Sync State
+      // Sync Data
+      lastState = d;
+      lastSyncTime = Date.now();
+      
       const st = d.state;
       document.body.classList.remove('running', 'paused');
       
@@ -521,49 +580,30 @@ setInterval(() => {
         document.body.classList.add('paused');
         document.getElementById('status-badge').innerText = "一時停止";
         isRunning = false;
+        
+        // Force update GUI once for paused state
+        document.getElementById('yt-fill').style.width = getLastPct(d) + "%";
       } else {
         document.getElementById('status-badge').innerText = "待機中";
         isRunning = false;
+        document.getElementById('yt-fill').style.width = "0%";
       }
 
-      // Sync Params
-      // Only update inputs if NOT running to avoid jumping while editing
       if(!isRunning && st === 'IDLE') {
-          // Sync logic if needed
-      }
-      
-      // Update Progress (Precise)
-      if(isRunning || st === 'PAUSED') {
-         // Cycle Config
-         let t_reach = d.reach;
-         let t_hold = d.hold;
-         let t_rel = 0.3; // Fast release buffer
-         let t_cycle = t_reach + t_hold + t_rel;
-         
-         let total = d.total * t_cycle;
-         let completed = d.cycle * t_cycle;
-         
-         // Intra-cycle progress
-         let intra = 0;
-         let elap_sec = d.elap / 1000.0;
-         
-         if(st === 'SQUEEZING') intra = elap_sec;
-         else if(st === 'HOLDING') intra = t_reach + elap_sec;
-         else if(st === 'RELEASING' || st === 'WAIT_CYCLE') intra = t_reach + t_hold + elap_sec;
-         
-         let current = completed + intra;
-         
-         // Progress & Time
-         let pct = Math.min((current / total) * 100, 100);
-         document.getElementById('yt-fill').style.width = pct + "%";
-         
-         let rem = Math.max(0, Math.ceil(total - current));
-         document.getElementById('time-display').innerText = fmtTime(rem);
-      } else {
-         document.getElementById('yt-fill').style.width = "0%";
+          // Sync logic
       }
     });
-}, 500); // Poll faster for smoothness
+}, 1000);
+
+function getLastPct(d) {
+  // Helper for static display
+  let t_cycle = d.reach + d.hold + 0.3;
+  let total = d.total * t_cycle;
+  let cur = (d.cycle * t_cycle) + (d.elap/1000.0);
+  if(d.state==='HOLDING') cur += d.reach;
+  if(d.state==='RELEASING') cur += d.reach + d.hold;
+  return Math.min((cur/total)*100, 100);
+}
 
 function stop() {
   if(navigator.vibrate) navigator.vibrate(50);
