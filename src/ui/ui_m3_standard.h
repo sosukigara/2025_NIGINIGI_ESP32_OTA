@@ -71,16 +71,27 @@ body {
   position: relative;
   padding-bottom: 25px; /* Space for scrubber */
 }
-.monitor-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 30px; }
+.monitor-row { 
+  display: flex; 
+  flex-direction: column; /* Stack vertically for centering */
+  align-items: center;    /* Center horizontally */
+  justify-content: center;
+  gap: 12px;              /* Gap between badge and time */
+  margin-bottom: 30px; 
+}
 .status-badge {
   background: #f2f2f7; color: var(--text-sub);
   padding: 6px 12px; border-radius: 20px;
-  font-size: 0.8rem; font-weight: 700;
+  font-size: 0.9rem; font-weight: 700;
 }
 .running .status-badge { background: #fee2e2; color: var(--yt-red); }
 
 .time-big {
-  font-size: 2.2rem; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -1px;
+  font-size: 3.5rem; /* Made bigger since it's centered */
+  font-weight: 800; 
+  font-variant-numeric: tabular-nums; 
+  letter-spacing: -2px;
+  line-height: 1;
 }
 
 /* YouTube Style Progress Bar */
