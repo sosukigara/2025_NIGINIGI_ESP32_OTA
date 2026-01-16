@@ -26,25 +26,35 @@ const int PIN_SERVO3 = 27;
 // Logic: 0 deg = 100% (Strong), 270 deg = 0% (Weak/Rest)
 const int MIN_US = 500;
 const int MAX_US = 2500;
-const int REF_ANGLE = 270; // 0% Strength
+// サーボ設定 (us制御)
+const int US_MIN = 500;  // 270度 (Weak/Rest)
+const int US_MAX = 2500; // 0度 (Strong/Squeeze)
 
 // State Machine
-enum State { IDLE, SQUEEZING, HOLDING, RELEASING, WAIT_CYCLE };
+// 状態管理
+enum State { IDLE, PREPARE_SQUEEZE, SQUEEZING, HOLDING, RELEASING, WAIT_CYCLE };
 State currentState = IDLE;
-
-unsigned long stateStartTime = 0;
+State lastState = IDLE;
+int pin13State = 0;
+long stateStartTime = 0;
 unsigned long sessionStartTime = 0; // ms when /api/start was called
 float holdTimeSec = 0.5; // Default 0.5s
 float reachTimeSec = 0.5; // Default 0.5s
-int targetStrength = 50; // 0-100%
-int targetCount = 3;
-int currentCycle = 0;
-int pin13State = 0;
 
-void setAllServos(int angle) {
-  servo1.write(angle);
-  servo2.write(angle);
-  servo3.write(angle);
+int targetStrength = 0; // Global variable for target strength
+int targetCount = 0;    // Global variable for target count
+int currentCycle = 0;   // Global variable for current cycle
+
+// ヘルパー: パーセントからパルス幅(us)を計算
+int strengthToUs(int strength) {
+    return map(strength, 0, 100, US_MIN, US_MAX);
+}
+
+// ヘルパー: 全サーボ制御 (us指定)
+void setAllServosUs(int us) {
+    servo1.writeMicroseconds(us);
+    servo2.writeMicroseconds(us);
+    servo3.writeMicroseconds(us);
 }
 
 // NTP Settings
@@ -66,22 +76,18 @@ void handleApiStart() {
   
   Serial.printf("[API] Start: Str=%d%%, Cnt=%d\n", targetStrength, targetCount);
   
-  currentState = SQUEEZING;
-  currentCycle = 0;
-  stateStartTime = millis();
-  sessionStartTime = stateStartTime; 
-  
-  // Ensure proper start from open position for ramping
-  setAllServos(REF_ANGLE);
-  
-  server.send(200, "text/plain", "OK");
+    currentCycle = 0;
+    sessionStartTime = millis();
+    currentState = PREPARE_SQUEEZE; 
+    
+    server.send(200, "text/plain", "OK");
 }
 
 void handleApiStop() {
-  Serial.println("[API] Stop");
-  currentState = IDLE;
-  setAllServos(REF_ANGLE); // Return to safe pos
-  server.send(200, "text/plain", "OK");
+    Serial.println("[API] Stop");
+    currentState = IDLE;
+    setAllServosUs(US_MIN);
+    server.send(200, "text/plain", "OK");
 }
 
 void handleApiSettings() {
@@ -119,6 +125,7 @@ void handleApiStatus() {
   String s;
   switch (currentState) {
     case IDLE: s = "IDLE"; break;
+    case PREPARE_SQUEEZE: s = "PREPARE_SQUEEZE"; break;
     case SQUEEZING: s = "SQUEEZING"; break;
     case HOLDING: s = "HOLDING"; break;
     case RELEASING: s = "RELEASING"; break;
@@ -140,17 +147,6 @@ void handleApiStatus() {
   json += "\"dur\":" + String(totalDur);
   json += "}";
   server.send(200, "application/json", json);
-}
-
-void handleApiManual() {
-  if (server.hasArg("val")) {
-    int angle = server.arg("val").toInt();
-    // Manual control overrides everything
-    currentState = IDLE; 
-    setAllServos(angle);
-    Serial.printf("[API] Manual: %d deg\n", angle);
-  }
-  server.send(200, "text/plain", "OK");
 }
 
 void setup() {
@@ -176,13 +172,11 @@ void setup() {
   servo1.setPeriodHertz(50);
   servo2.setPeriodHertz(50);
   servo3.setPeriodHertz(50);
-  
-  servo1.attach(PIN_SERVO1, MIN_US, MAX_US);
-  servo2.attach(PIN_SERVO2, MIN_US, MAX_US);
-  servo3.attach(PIN_SERVO3, MIN_US, MAX_US);
-  
-  // Initial Position: 270 degrees (0%)
-  setAllServos(REF_ANGLE);
+    servo1.attach(PIN_SERVO1, US_MIN, US_MAX);
+    servo2.attach(PIN_SERVO2, US_MIN, US_MAX);
+    servo3.attach(PIN_SERVO3, US_MIN, US_MAX);
+    
+    setAllServosUs(US_MIN);
   
   // WiFi
   WiFi.begin(ssid, password);
@@ -203,7 +197,6 @@ void setup() {
   server.on("/api/stop", handleApiStop);
   server.on("/api/settings", handleApiSettings);
   server.on("/api/pin13", handleApiPin13);
-  server.on("/api/manual", handleApiManual);
   server.onNotFound([](){ server.send(404, "text/plain", "Not Found"); });
 
   server.begin();
@@ -212,89 +205,72 @@ void setup() {
   Serial.println("ONIGIRI MACHINE (Main) READY");
   Serial.printf("Settings: Hold=%.2fs, Reach=%.2fs\n", holdTimeSec, reachTimeSec);
   Serial.print("Access URL: http://");
+  Serial.println(WiFi.localIP());
   Serial.println("=================================");
 }
-
 
 
 // Improved Loop Logic
 void loop() {
   server.handleClient();
-  
   unsigned long now = millis();
-  static unsigned long cycleStartTime = 0;
+
+  if (currentState != lastState) {
+    stateStartTime = now;
+    lastState = currentState;
+    Serial.printf("State Changed to: %d\n", currentState);
+  }
 
   switch (currentState) {
     case IDLE:
       break;
+
+    case PREPARE_SQUEEZE:
+      setAllServosUs(US_MIN);
+      if (now - stateStartTime > 200) { // Wait 200ms in PREPARE_SQUEEZE
+        currentState = SQUEEZING;
+      }
+      break;
       
     case SQUEEZING:
-      // Mark start of this cycle if new
-      if (cycleStartTime == 0 || now - cycleStartTime > 5000) { // Safety reset
-         cycleStartTime = now; 
-      }
-      
       {
-         // Ramping Logic
-         // Target Angle: 0% = 270, 100% = 0
-         int targetAngle = 270 - (270 * targetStrength / 100);
-         
-         // Elapsed since state start
-         unsigned long elapsed = now - stateStartTime;
-         unsigned long duration = reachTimeSec * 1000;
-         
-         if (duration == 0) duration = 1; // avoid div0
-         
-         if (elapsed >= duration) {
-           // Finished reaching
-           setAllServos(targetAngle);
-           stateStartTime = now;
-           // Finished reaching
-           setAllServos(targetAngle);
-           stateStartTime = now;
-           currentState = HOLDING;
-           Serial.println("State: HOLDING");
-         } else {
-           // Interpolate: Map elapsed time to angle range
-           int currentAngle = map(elapsed, 0, duration, REF_ANGLE, targetAngle);
-           setAllServos(currentAngle);
-         }
+        unsigned long duration = reachTimeSec * 1000;
+        if (duration == 0) duration = 1; // Avoid division by zero
+        unsigned long elapsed = now - stateStartTime;
+        int targetUs = strengthToUs(targetStrength);
+        int startUs = US_MIN;
+
+        if (elapsed >= duration) {
+          setAllServosUs(targetUs);
+          currentState = HOLDING;
+        } else {
+          float progress = (float)elapsed / (float)duration;
+          int currentUs = startUs + (targetUs - startUs) * progress;
+          setAllServosUs(currentUs);
+        }
       }
       break;
       
     case HOLDING:
-      // Keep holding until time
       if (now - stateStartTime >= (holdTimeSec * 1000)) {
-        setAllServos(REF_ANGLE);
         currentState = RELEASING;
-        stateStartTime = now; 
-        Serial.println("State: RELEASING");
       }
       break;
       
     case RELEASING:
-      // Wait until Total Cycle Time is passed
-      // Total Cycle = Reach (var) + Hold (var) + Release (fixed 0.5s for now?)
-      // Actually user wanted 1.5s total cycle before.
-      // Now customizable.
-      // Let's say RELEASING takes 0.5s to return.
-      // Total dynamic cycle logic handling?
-      // Or just simple state transitions?
-      
-      // Let's make RELEASING just a quick return state.
-      if (now - stateStartTime >= 300) { // 0.3s buffer (Fastest Release)
+      setAllServosUs(US_MIN); // Immediately return to rest position
+      if (now - stateStartTime >= 300) { // Wait 300ms for release to complete
         currentState = WAIT_CYCLE;
       }
       break;
       
-   case WAIT_CYCLE:
+    case WAIT_CYCLE:
       currentCycle++;
       if (currentCycle < targetCount) {
-        cycleStartTime = now; // Mark start of next
-        stateStartTime = now;
-        currentState = SQUEEZING; 
+        currentState = SQUEEZING; // Start next cycle
       } else {
-        currentState = IDLE;
+        Serial.println("Session Finished.");
+        currentState = IDLE; // All cycles complete
       }
       break;
   }
