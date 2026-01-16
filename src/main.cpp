@@ -153,14 +153,17 @@ void handleApiStatus() {
 
 void handleApiManual() {
     if (server.hasArg("val")) {
-        int anglePercent = server.arg("val").toInt();
-        // UI says 0-100%, but this endpoint used to handle deg.
-        // Let's assume it wants 0-270 degrees based on the user's manual comment.
-        // UI current script converts pct to deg: 270 - (pct * 2.7)
-        int angle = anglePercent; 
-        currentState = IDLE; 
-        setAllServosAngle(angle);
-        Serial.printf("[API] Manual: %d deg\n", angle);
+        int pct = server.arg("val").toInt(); // 0(弱) - 100(強)
+        if (pct < 0) pct = 0;
+        if (pct > 100) pct = 100;
+
+        // 強さ% を パルス幅us に変換する既存関数を流用
+        int targetUs = strengthToUs(pct);
+        
+        currentState = IDLE; // 自動モードをキャンセル
+        setAllServosUs(targetUs);
+        
+        Serial.printf("[API] Manual: %d%% -> %dus\n", pct, targetUs);
     }
     server.send(200, "text/plain", "OK");
 }
