@@ -251,6 +251,22 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); backgrou
   .action-btn { height: 56px; font-size: 1.1rem; }
 }
 
+/* Toggle Switch */
+.switch {
+  position: relative; display: inline-block; width: 50px; height: 28px;
+}
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider {
+  position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+  background-color: #e5e5ea; transition: .4s; border-radius: 28px;
+}
+.slider:before {
+  position: absolute; content: ""; height: 20px; width: 20px;
+  left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+input:checked + .slider { background-color: var(--accent-blue); }
+input:checked + .slider:before { transform: translateX(22px); }
 </style>
 </head>
 <body>
@@ -350,6 +366,15 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); backgrou
       <span class="s-label">握り時間 (秒)</span>
       <input type="number" id="inp-reach" value="0.5" step="0.1" style="width:80px; padding:12px; border-radius:12px; border:1px solid #ddd; text-align:center; font-size:1.1rem; font-weight:700;" onchange="saveReach(this.value)">
     </div>
+
+    <!-- Toggle Pin 13 -->
+    <div class="setting-item" style="flex-direction:row; align-items:center; justify-content:space-between;">
+      <span class="s-label">外部出力 (Pin 13)</span>
+      <label class="switch">
+        <input type="checkbox" id="chk-pin13" onchange="togglePin13(this)">
+        <span class="slider round"></span>
+      </label>
+    </div>
     
     <div class="setting-item">
       <div class="s-header">
@@ -374,6 +399,7 @@ function fetchSettings() {
     .then(d=>{
       if(d.hold) document.getElementById('inp-hold').value = d.hold;
       if(d.reach) document.getElementById('inp-reach').value = d.reach;
+      if(d.pin13 !== undefined) document.getElementById('chk-pin13').checked = (d.pin13 == 1);
       updTimeDisp();
     });
 }
@@ -381,6 +407,8 @@ fetchSettings();
 
 function saveHold(v) { fetch('/api/settings?hold=' + v).then(()=>updTimeDisp()); }
 function saveReach(v) { fetch('/api/settings?reach=' + v).then(()=>updTimeDisp()); }
+function togglePin13(el) { fetch('/api/pin13?val=' + (el.checked ? 1 : 0)); }
+
 function manualServo(v) {
   document.getElementById('man-val').innerText = v + "°";
   fetch('/api/manual?val=' + v);
@@ -441,6 +469,9 @@ function syncStatus() {
       const bar = document.getElementById('yt-fill');
       const timeDisp = document.getElementById('time-display');
       
+      // Update Pin 13 check if not interacting
+      if(d.pin13 !== undefined) document.getElementById('chk-pin13').checked = (d.pin13 == 1);
+
       document.body.classList.remove('running');
       if(st !== 'IDLE') {
         document.body.classList.add('running');

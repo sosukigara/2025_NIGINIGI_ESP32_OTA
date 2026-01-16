@@ -39,6 +39,7 @@ float reachTimeSec = 0.5; // Default 0.5s
 int targetStrength = 50; // 0-100%
 int targetCount = 3;
 int currentCycle = 0;
+int pin13State = 0;
 
 void setAllServos(int angle) {
   servo1.write(angle);
@@ -104,6 +105,16 @@ void handleApiSettings() {
   server.send(200, "application/json", json);
 }
 
+void handleApiPin13() {
+  if (server.hasArg("val")) {
+    pin13State = server.arg("val").toInt();
+    digitalWrite(13, pin13State ? HIGH : LOW);
+    preferences.putInt("pin13", pin13State);
+    Serial.printf("[API] Pin 13: %d\n", pin13State);
+  }
+  server.send(200, "text/plain", "OK");
+}
+
 void handleApiStatus() {
   String s;
   switch (currentState) {
@@ -125,6 +136,7 @@ void handleApiStatus() {
   json += "\"reach\":" + String(reachTimeSec) + ",";
   json += "\"str\":" + String(targetStrength) + ",";
   json += "\"elap\":" + String(millis() - sessionStartTime) + ",";
+  json += "\"pin13\":" + String(pin13State) + ",";
   json += "\"dur\":" + String(totalDur);
   json += "}";
   server.send(200, "application/json", json);
@@ -149,6 +161,10 @@ void setup() {
   preferences.begin("job", false);
   holdTimeSec = preferences.getFloat("hold", 0.5);
   reachTimeSec = preferences.getFloat("reach", 0.5);
+  pin13State = preferences.getInt("pin13", 0);
+  
+  pinMode(13, OUTPUT);
+  digitalWrite(13, pin13State ? HIGH : LOW);
   
   // Servo Setup
   // Allow allocation of all timers
@@ -186,6 +202,7 @@ void setup() {
   server.on("/api/start", handleApiStart);
   server.on("/api/stop", handleApiStop);
   server.on("/api/settings", handleApiSettings);
+  server.on("/api/pin13", handleApiPin13);
   server.on("/api/manual", handleApiManual);
   server.onNotFound([](){ server.send(404, "text/plain", "Not Found"); });
 
