@@ -308,6 +308,22 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); backgrou
         <div>IP: <span style="font-family:monospace;" id="ip-disp">...</span></div>
       </div>
     </div>
+    
+    <!-- Hold Time Setting -->
+    <div class="setting-item" style="flex-direction:row; align-items:center; justify-content:space-between; padding:16px 0;">
+      <span class="s-label">停止時間 (秒)</span>
+      <input type="number" id="inp-hold" value="0.5" step="0.1" style="width:80px; padding:8px; border-radius:8px; border:1px solid #ddd; text-align:center; font-size:1rem;" onchange="saveHold(this.value)">
+    </div>
+    
+    <!-- Manual Control -->
+    <div class="setting-item">
+      <div class="s-header">
+        <span class="s-label">手動操作 (全サーボ)</span>
+        <span class="s-val" id="man-val">270°</span>
+      </div>
+      <input type="range" min="0" max="270" value="270" style="direction:rtl;" oninput="manualServo(this.value)">
+      <div style="font-size:0.8rem; color:#aaa; margin-top:4px;">※ 左(270°)=緩 / 右(0°)=強</div>
+    </div>
   </div>
 </div>
 
@@ -321,6 +337,22 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); backgrou
 
 <script>
 document.getElementById('ip-disp').innerText = window.location.hostname;
+
+// Load Settings
+fetch('/api/settings?load=1')
+  .then(r=>r.text())
+  .then(t=>{
+    if(t) document.getElementById('inp-hold').value = t;
+  });
+
+function saveHold(v) {
+  fetch('/api/settings?hold=' + v);
+}
+
+function manualServo(v) {
+  document.getElementById('man-val').innerText = v + "°";
+  fetch('/api/manual?val=' + v);
+}
 
 function showSettings() {
   document.getElementById('view-main').style.display = 'none';
@@ -375,7 +407,11 @@ function start() {
   isRunning = true;
   document.body.classList.add('running');
   document.getElementById('status-badge').innerText = "成形中";
-  fetch('/api/start');
+  
+  // Send Params
+  let str = document.getElementById('inp-str').value;
+  fetch('/api/start?str=' + str + '&cnt=' + tgtCount);
+  
   curCount = 0;
   totalTime = tgtCount * 1.5;
   startTime = Date.now();
