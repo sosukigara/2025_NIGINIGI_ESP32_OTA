@@ -49,7 +49,7 @@ body {
 /* Connection Lost State */
 body.offline { opacity: 0.6; pointer-events: none; }
 body.offline::after {
-  content: "接続待機中...";
+  content: "再接続中...";
   position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
   background: rgba(0,0,0,0.8); color: white; padding: 12px 24px;
   border-radius: 30px; font-weight: bold; pointer-events: none;
@@ -114,7 +114,7 @@ body.offline::after {
   letter-spacing: -2px; line-height: 1;
 }
 
-/* Progress Bar */
+/* Progress Bar - JS制御のためTransitionは不要 */
 .yt-progress-container {
   width: 100%; height: 8px; 
   background: #e5e5ea; position: relative;
@@ -123,13 +123,12 @@ body.offline::after {
 .yt-progress-fill {
   position: absolute; left: 0; top: 0; height: 100%;
   background: var(--yt-red); border-radius: 4px;
-  width: 0%; 
-  transition: width 0.25s linear; /* Matches polling rate */
+  width: 0%;
 }
 
 /* Preset Buttons */
 .card-preset h3 { margin: 0 0 10px 0; font-size: 1rem; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.05em; }
-.preset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.preset-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
 .preset-btn {
   background: var(--bg); border: 2px solid transparent;
   padding: 14px; border-radius: 14px;
@@ -261,7 +260,7 @@ input:checked + .slider:before { transform: translateX(22px); }
   <!-- 2. Preset -->
   <div class="card card-preset">
     <h3>プリセット</h3>
-    <div class="preset-grid" style="grid-template-columns: 1fr 1fr 1fr;">
+    <div class="preset-grid">
       <div class="preset-btn" onclick="setPreset('soft',this)">やわらか</div>
       <div class="preset-btn active" onclick="setPreset('normal',this)">ふつう</div>
       <div class="preset-btn" onclick="setPreset('kosen',this)">高専生用</div>
@@ -343,7 +342,6 @@ input:checked + .slider:before { transform: translateX(22px); }
         <span class="s-label">手動操作 (0=開, 100=閉)</span>
         <span class="s-val" id="man-val">0%</span>
       </div>
-      <!-- Slider 0 to 100 for better UX, converted to degree in JS -->
       <input type="range" min="0" max="100" value="0" oninput="manualServo(this.value)">
     </div>
   </div>
@@ -351,8 +349,12 @@ input:checked + .slider:before { transform: translateX(22px); }
 
 <script>
 let tgtCount = 3;
-let statusTimer = null;
 let lastStatus = "IDLE";
+
+// Animation Variables
+let isRunning = false;
+let sessionTotalDur = 1.0; 
+let sessionStartTime = 0;  
 
 document.getElementById('ip-disp').innerText = window.location.hostname;
 
@@ -374,11 +376,7 @@ function togglePin13(el) { fetch('/api/pin13?val=' + (el.checked ? 1 : 0)); }
 
 function manualServo(pct) {
   document.getElementById('man-val').innerText = pct + "%";
-  // UI sends 0-100%, converted to 270-0 degrees for backend
-  // 0% (Open) = 270 deg
-  // 100% (Closed) = 0 deg
-  const deg = 270 - (pct * 2.7);
-  fetch('/api/manual?val=' + Math.floor(deg));
+  fetch('/api/manual?val=' + pct);
 }
 
 function updVal(id, v, unit) { document.getElementById(id).innerText = v + unit; }
@@ -389,9 +387,9 @@ function fmtTime(s) {
 }
 
 function updTimeDisp() {
+  if (isRunning) return;
   const h = parseFloat(document.getElementById('inp-hold').value) || 0.5;
   const r = parseFloat(document.getElementById('inp-reach').value) || 0.5;
-  // Estimated cycle: reach + hold + release(approx 0.3)
   const total = tgtCount * (h + r + 0.3);
   document.getElementById('time-display').innerText = fmtTime(Math.ceil(total));
 }
@@ -400,7 +398,7 @@ function setCount(n, el) {
   tgtCount = n;
   document.querySelectorAll('.chk-btn').forEach(b => b.classList.remove('active'));
   el.classList.add('active');
-  if(lastStatus === 'IDLE') updTimeDisp();
+  if(!isRunning) updTimeDisp();
 }
 
 function setPreset(mode, el) {
@@ -424,6 +422,8 @@ function showMain() {
 
 function start() {
   const s = document.getElementById('inp-str').value;
+  isRunning = true;
+  document.body.classList.add('running');
   fetch(`/api/start?str=${s}&cnt=${tgtCount}`).catch(()=>{});
 }
 function stop() { fetch('/api/stop').catch(()=>{}); }
@@ -436,44 +436,66 @@ function setOnline(isOnline) {
   }
 }
 
+// --- SMOOTH ANIMATION LOOP (60fps) ---
+function animateLoop() {
+  if (isRunning && sessionTotalDur > 0) {
+    const now = Date.now();
+    const elapsedSec = (now - sessionStartTime) / 1000;
+    const remaining = Math.max(0, sessionTotalDur - elapsedSec);
+    
+    document.getElementById('time-display').innerText = fmtTime(Math.ceil(remaining));
+
+    let pct = (elapsedSec / sessionTotalDur) * 100;
+    if (pct < 0) pct = 0;
+    if (pct > 100) pct = 100;
+    document.getElementById('yt-fill').style.width = pct + "%";
+  }
+  requestAnimationFrame(animateLoop);
+}
+requestAnimationFrame(animateLoop);
+
+
+// --- SYNC WITH SERVER ---
 function syncStatus() {
   fetch('/api/status')
     .then(r => r.json())
     .then(d => {
       setOnline(true);
       lastStatus = d.state;
-      const bar = document.getElementById('yt-fill');
-      const timeDisp = document.getElementById('time-display');
       
-      // Sync Pin13
       if(d.pin13 !== undefined && document.activeElement.id !== 'chk-pin13') {
         document.getElementById('chk-pin13').checked = (d.pin13 == 1);
       }
 
       if(d.state !== 'IDLE') {
-        document.body.classList.add('running');
+        if (!isRunning) {
+          isRunning = true;
+          document.body.classList.add('running');
+        }
+
         let txt = "動作中";
         if(d.state === 'PREPARE_SQUEEZE') txt = "準備中...";
         if(d.state === 'SQUEEZING') txt = "握り中";
         if(d.state === 'HOLDING') txt = "保持中";
         if(d.state === 'RELEASING') txt = "解放中";
-        
         document.getElementById('status-badge').innerText = `${txt} (${d.cycle+1}/${d.total})`;
+
+        const serverElapsedMs = d.elap || 0;
+        sessionTotalDur = d.dur || 1; 
         
-        // Dynamic Progress
-        const elap = (d.elap || 0) / 1000;
-        const total = d.dur || 1;
-        const rem = Math.max(0, total - elap);
-        let pct = (elap / total) * 100;
-        if(pct > 100) pct = 100;
-        
-        bar.style.width = pct + '%';
-        timeDisp.innerText = fmtTime(Math.ceil(rem));
+        const estimatedStart = Date.now() - serverElapsedMs;
+        if (Math.abs(estimatedStart - sessionStartTime) > 300) {
+           sessionStartTime = estimatedStart;
+        }
+
       } else {
-        document.body.classList.remove('running');
-        document.getElementById('status-badge').innerText = "待機中";
-        bar.style.width = '0%';
-        updTimeDisp(); // Reset to preset time
+        if (isRunning) {
+          isRunning = false;
+          document.body.classList.remove('running');
+          document.getElementById('status-badge').innerText = "待機中";
+          document.getElementById('yt-fill').style.width = '0%';
+          updTimeDisp(); 
+        }
       }
     })
     .catch(e => {
@@ -481,8 +503,7 @@ function syncStatus() {
     });
 }
 
-// 250ms interval for smoother UI updates
-setInterval(syncStatus, 250);
+setInterval(syncStatus, 1000);
 </script>
 </body>
 </html>

@@ -36,7 +36,7 @@ enum State { IDLE, PREPARE_SQUEEZE, SQUEEZING, HOLDING, RELEASING, WAIT_CYCLE };
 State currentState = IDLE;
 State lastState = IDLE;
 int pin13State = 0;
-long stateStartTime = 0;
+unsigned long stateStartTime = 0;
 unsigned long sessionStartTime = 0; // ms when /api/start was called
 float holdTimeSec = 0.5; // Default 0.5s
 float reachTimeSec = 0.5; // Default 0.5s
@@ -106,9 +106,29 @@ void handleApiSettings() {
   String json = "{";
   json += "\"hold\":" + String(holdTimeSec) + ",";
   json += "\"reach\":" + String(reachTimeSec) + ",";
-  json += "\"pin13\":0"; // Temporarily hardcoded for this version
+  json += "\"pin13\":" + String(pin13State);
   json += "}";
   server.send(200, "application/json", json);
+}
+
+void handleApiManual() {
+  if (server.hasArg("val")) {
+    int pct = server.arg("val").toInt();
+    // pct is 0-100% from new UI
+    int us = strengthToUs(pct);
+    currentState = IDLE;
+    setAllServosUs(us);
+    Serial.printf("[API] Manual: %d%% (%d us)\n", pct, us);
+  } else if (server.hasArg("deg")) {
+    // Legacy support for degrees
+    int deg = server.arg("deg").toInt();
+    currentState = IDLE;
+    servo1.write(deg);
+    servo2.write(deg);
+    servo3.write(deg);
+    Serial.printf("[API] Manual: %d deg\n", deg);
+  }
+  server.send(200, "text/plain", "OK");
 }
 
 void handleApiPin13() {
@@ -197,6 +217,7 @@ void setup() {
   server.on("/api/stop", handleApiStop);
   server.on("/api/settings", handleApiSettings);
   server.on("/api/pin13", handleApiPin13);
+  server.on("/api/manual", handleApiManual);
   server.onNotFound([](){ server.send(404, "text/plain", "Not Found"); });
 
   server.begin();
@@ -247,6 +268,14 @@ void loop() {
           float progress = (float)elapsed / (float)duration;
           int currentUs = startUs + (targetUs - startUs) * progress;
           setAllServosUs(currentUs);
+          
+          // Debug PWM output every 10% progress
+          static int lastLoggedPct = -1;
+          int currentPct = (int)(progress * 10);
+          if (currentPct != lastLoggedPct) {
+            Serial.printf("[PWM] Squeezing: %d us (%d%%)\n", currentUs, (int)(progress*100));
+            lastLoggedPct = currentPct;
+          }
         }
       }
       break;
@@ -270,6 +299,7 @@ void loop() {
         currentState = SQUEEZING; // Start next cycle
       } else {
         Serial.println("Session Finished.");
+        setAllServosUs(US_MIN); // Ensure return to open position (270 deg)
         currentState = IDLE; // All cycles complete
       }
       break;
