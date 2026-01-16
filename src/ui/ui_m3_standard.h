@@ -165,9 +165,18 @@ input[type=range]::-webkit-slider-thumb {
 }
 input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); background: #f2f2f7; }
 
-.num-input {
-  width: 60px; padding: 8px; border-radius: 8px; background: #f2f2f7;
-  border: none; text-align: center; font-weight: 700; font-size: 1.1rem;
+/* Grip Count Buttons */
+.chk-group { display: flex; gap: 12px; justify-content: flex-end; }
+.chk-btn {
+  width: 48px; height: 48px; border-radius: 50%;
+  background: #f2f2f7; color: var(--text-sub);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem; font-weight: 700;
+  cursor: pointer; transition: 0.2s;
+}
+.chk-btn.active {
+  background: var(--text-main); color: white;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2); transform: scale(1.05);
 }
 
 /* Bottom Action Bar */
@@ -227,12 +236,22 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); backgrou
 
 <!-- 3. Settings -->
 <div class="card card-settings">
-  <div class="setting-item" style="border-bottom:none;">
+  <div class="setting-item">
     <div class="s-header">
       <span class="s-label">握りの強さ</span>
       <span class="s-val" id="str-disp">50%</span>
     </div>
     <input type="range" id="inp-str" min="0" max="100" value="50" oninput="updVal('str-disp', this.value, '%')">
+  </div>
+  
+  <div class="setting-item" style="flex-direction:row; align-items:center; justify-content:space-between; padding:16px 0;">
+    <span class="s-label">握り回数</span>
+    <div class="chk-group">
+      <div class="chk-btn" onclick="setCount(1,this)">1</div>
+      <div class="chk-btn" onclick="setCount(2,this)">2</div>
+      <div class="chk-btn active" onclick="setCount(3,this)">3</div>
+      <div class="chk-btn" onclick="setCount(4,this)">4</div>
+    </div>
   </div>
 </div>
 
@@ -254,10 +273,16 @@ let isRunning = false;
 let loopT = null;
 let startTime = 0;
 let totalTime = 1.5; // Fixed 1.5s per grip
-let tgtCount = 3;    // Fixed 3 grips
+let tgtCount = 3;    // Default 3
 let curCount = 0;
 
 function updVal(id, v, unit) { document.getElementById(id).innerText = v + unit; }
+
+function setCount(n, el) {
+  tgtCount = n;
+  document.querySelectorAll('.chk-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+}
 
 // Format seconds to M:SS (like YouTube)
 function fmtTime(s) {
@@ -271,11 +296,14 @@ function setPreset(mode, el) {
   el.classList.add('active');
   const s = document.getElementById('inp-str');
   
-  // All presets unified to 3 grips (logic fixed), only Strength varies
+  // All presets default to 3 grips, only Strength varies
   if(mode==='soft') { s.value=30; }
   if(mode==='normal') { s.value=50; }
   if(mode==='hard') { s.value=80; }
   if(mode==='kosen') { s.value=100; }
+  
+  // Update UI for preset default (3)
+  setCount(3, document.querySelectorAll('.chk-btn')[2]); // Select '3'
   
   updVal('str-disp', s.value, '%');
 }
@@ -287,7 +315,7 @@ function start() {
   document.getElementById('status-badge').innerText = "成形中"; // Machine term
   fetch('/api/start');
   
-  tgtCount = 3; // Fixed 3
+  // tgtCount is set by setCount already
   curCount = 0;
   totalTime = 1.5; // Ensure fixed time
   startTime = Date.now();
