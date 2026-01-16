@@ -235,17 +235,9 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); backgrou
     <input type="range" id="inp-str" min="0" max="100" value="50" oninput="updVal('str-disp', this.value, '%')">
   </div>
   
-  <div class="setting-item">
-    <div class="s-header">
-      <span class="s-label">成形時間</span>
-      <span class="s-val" id="time-disp">10秒</span>
-    </div>
-    <input type="range" id="inp-time" min="1" max="60" value="10" oninput="updVal('time-disp', this.value, '秒')">
-  </div>
-  
   <div class="setting-item" style="flex-direction:row; align-items:center; justify-content:space-between; padding:16px 0;">
-    <span class="s-label">作成個数</span>
-    <input type="number" class="num-input" id="inp-count" value="1" min="1" max="3">
+    <span class="s-label">握り回数</span>
+    <input type="number" class="num-input" id="inp-count" value="3" min="1" max="10">
   </div>
 </div>
 
@@ -266,7 +258,7 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); backgrou
 let isRunning = false;
 let loopT = null;
 let startTime = 0;
-let totalTime = 10;
+let totalTime = 1.5; // Fixed 1.5s per grip
 let tgtCount = 0, curCount = 0;
 
 function updVal(id, v, unit) { document.getElementById(id).innerText = v + unit; }
@@ -282,16 +274,15 @@ function setPreset(mode, el) {
   document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
   el.classList.add('active');
   const s = document.getElementById('inp-str');
-  const t = document.getElementById('inp-time');
   const c = document.getElementById('inp-count');
   
-  if(mode==='soft') { s.value=30; t.value=5; }
-  if(mode==='normal') { s.value=50; t.value=10; }
-  if(mode==='hard') { s.value=80; t.value=15; }
-  if(mode==='kosen') { s.value=100; t.value=3; c.value=3; }
+  // Adjusted presets for Grip Count
+  if(mode==='soft') { s.value=30; c.value=3; }
+  if(mode==='normal') { s.value=50; c.value=5; }
+  if(mode==='hard') { s.value=80; c.value=7; }
+  if(mode==='kosen') { s.value=100; c.value=10; }
   
   updVal('str-disp', s.value, '%');
-  updVal('time-disp', t.value, '秒');
 }
 
 function start() {
@@ -303,7 +294,7 @@ function start() {
   
   tgtCount = parseInt(document.getElementById('inp-count').value);
   curCount = 0;
-  totalTime = parseInt(document.getElementById('inp-time').value);
+  totalTime = 1.5; // Ensure fixed time
   startTime = Date.now();
   
   loopT = setInterval(() => {
@@ -315,14 +306,21 @@ function start() {
     
     document.getElementById('yt-fill').style.width = pct + "%";
     
-    // Show Remaining Time
-    let rem = Math.max(0, Math.ceil(totalTime - effectiveElapsed));
-    document.getElementById('time-display').innerText = fmtTime(rem);
+    // Show Remaining Time (Total Sequence)
+    // Remaining Grips * 1.5s + current remaining
+    let remGrips = tgtCount - curCount - 1;
+    let currentRem = Math.max(0, totalTime - effectiveElapsed);
+    let totalRem = (remGrips * totalTime) + currentRem;
+    
+    // Display total remaining time for the WHOLE job
+    document.getElementById('time-display').innerText = fmtTime(Math.ceil(totalRem));
     
     if(elapsed >= totalTime) {
       curCount++;
       if(curCount < tgtCount) {
         startTime = Date.now();
+        // Maybe vibration per squeeze?
+        if(navigator.vibrate) navigator.vibrate(30);
       } else {
         finish();
       }
@@ -348,7 +346,7 @@ function finish() {
 }
 
 // Initial Disp
-document.getElementById('time-display').innerText = fmtTime(10);
+document.getElementById('time-display').innerText = fmtTime(0);
 </script>
 </body>
 </html>
