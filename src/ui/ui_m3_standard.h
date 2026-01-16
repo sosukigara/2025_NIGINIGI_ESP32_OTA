@@ -119,20 +119,55 @@ body {
 }
 
 /* 3. Settings Card (List Style) */
-.card-settings { padding: 0; }
+.card-settings { padding: 20px; } /* Added padding for stacked layout */
 .setting-item {
-  padding: 16px 20px;
-  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 0;
+  display: flex; flex-direction: column; /* Stacked for better control */
   border-bottom: 1px solid #f2f2f7;
 }
 .setting-item:last-child { border-bottom: none; }
-.s-label { font-size: 0.95rem; font-weight: 600; }
-.s-val { font-weight: 700; color: var(--accent-purple); }
 
-input[type=range] { width: 120px; accent-color: var(--accent-purple); }
+.s-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 12px;
+}
+.s-label { font-size: 1rem; font-weight: 700; color: var(--text-main); }
+.s-val { font-size: 1rem; font-weight: 700; color: var(--accent-purple); font-variant-numeric: tabular-nums; }
+
+/* Custom Large Range Slider */
+input[type=range] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 44px; /* Large touch target */
+  background: transparent;
+  cursor: pointer;
+  margin: 0;
+}
+input[type=range]:focus { outline: none; }
+
+/* Track */
+input[type=range]::-webkit-slider-runnable-track {
+  width: 100%; height: 12px;
+  background: #e5e5ea;
+  border-radius: 6px;
+  border: none;
+}
+/* Thumb */
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  height: 32px; width: 32px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 0.5px solid rgba(0,0,0,0.04);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+  margin-top: -10px; /* Center on track: (12 - 32)/2 */
+  transition: transform 0.1s;
+}
+input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); background: #f2f2f7; }
+
 .num-input {
-  width: 50px; padding: 6px; border-radius: 8px; background: #f2f2f7;
-  border: none; text-align: center; font-weight: 700; font-size: 1rem;
+  width: 60px; padding: 8px; border-radius: 8px; background: #f2f2f7;
+  border: none; text-align: center; font-weight: 700; font-size: 1.1rem;
 }
 
 /* Bottom Action Bar */
@@ -163,7 +198,7 @@ input[type=range] { width: 120px; accent-color: var(--accent-purple); }
 <body>
 
 <div class="header">
-  <h1>おにぎり成形機</h1>
+  <h1>にぎにぎ</h1>
 </div>
 
 <!-- 1. Monitor (YouTube Style) -->
@@ -193,19 +228,22 @@ input[type=range] { width: 120px; accent-color: var(--accent-purple); }
 <!-- 3. Settings -->
 <div class="card card-settings">
   <div class="setting-item">
-    <span class="s-label">握りの強さ</span>
-    <div style="display:flex; align-items:center; gap:10px;">
-      <input type="range" id="inp-str" min="0" max="100" value="50" oninput="updVal('str-disp', this.value)">
+    <div class="s-header">
+      <span class="s-label">握りの強さ</span>
       <span class="s-val" id="str-disp">50%</span>
     </div>
+    <input type="range" id="inp-str" min="0" max="100" value="50" oninput="updVal('str-disp', this.value, '%')">
   </div>
   
   <div class="setting-item">
-    <span class="s-label">成形時間 (秒)</span>
-    <input type="number" class="num-input" id="inp-time" value="10" min="1" max="60">
+    <div class="s-header">
+      <span class="s-label">成形時間</span>
+      <span class="s-val" id="time-disp">10秒</span>
+    </div>
+    <input type="range" id="inp-time" min="1" max="60" value="10" oninput="updVal('time-disp', this.value, '秒')">
   </div>
   
-  <div class="setting-item">
+  <div class="setting-item" style="flex-direction:row; align-items:center; justify-content:space-between; padding:16px 0;">
     <span class="s-label">作成個数</span>
     <input type="number" class="num-input" id="inp-count" value="1" min="1" max="3">
   </div>
@@ -231,7 +269,7 @@ let startTime = 0;
 let totalTime = 10;
 let tgtCount = 0, curCount = 0;
 
-function updVal(id, v) { document.getElementById(id).innerText = v + "%"; }
+function updVal(id, v, unit) { document.getElementById(id).innerText = v + unit; }
 
 // Format seconds to M:SS (like YouTube)
 function fmtTime(s) {
@@ -252,7 +290,8 @@ function setPreset(mode, el) {
   if(mode==='hard') { s.value=80; t.value=15; }
   if(mode==='kosen') { s.value=100; t.value=3; c.value=3; }
   
-  updVal('str-disp', s.value);
+  updVal('str-disp', s.value, '%');
+  updVal('time-disp', t.value, '秒');
 }
 
 function start() {
