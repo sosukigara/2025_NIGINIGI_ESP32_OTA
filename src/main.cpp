@@ -21,6 +21,8 @@ Servo servo3;
 const int PIN_SERVO1 = 25;
 const int PIN_SERVO2 = 26;
 const int PIN_SERVO3 = 27;
+const int PIN_LED = 13;
+bool pin13State = false;
 
 // Servo Config (270 degree servo, 500-2500us usually covers full range)
 // Logic: 0 deg = 100% (Strong), 270 deg = 0% (Weak/Rest)
@@ -96,11 +98,21 @@ void handleApiSettings() {
   // Return JSON
   String json = "{";
   json += "\"hold\":" + String(holdTimeSec) + ",";
-  json += "\"reach\":" + String(reachTimeSec);
-  json += "}";
-  json += "\"reach\":" + String(reachTimeSec);
+  json += "\"reach\":" + String(reachTimeSec) + ",";
+  json += "\"pin13\":" + String(pin13State ? 1 : 0);
   json += "}";
   server.send(200, "application/json", json);
+}
+
+void handleApiPin13() {
+  if(server.hasArg("val")) {
+    int v = server.arg("val").toInt();
+    pin13State = (v == 1);
+    digitalWrite(PIN_LED, pin13State ? HIGH : LOW);
+    preferences.putBool("pin13", pin13State);
+    Serial.printf("[API] Pin 13: %d\n", pin13State);
+  }
+  server.send(200, "text/plain", pin13State ? "1" : "0");
 }
 
 void handleApiStatus() {
@@ -162,6 +174,10 @@ void setup() {
   preferences.begin("job", false);
   holdTimeSec = preferences.getFloat("hold", 0.5);
   reachTimeSec = preferences.getFloat("reach", 0.5);
+  pin13State = preferences.getBool("pin13", false);
+  
+  pinMode(PIN_LED, OUTPUT);
+  digitalWrite(PIN_LED, pin13State ? HIGH : LOW);
   
   // Servo Setup
   // Allow allocation of all timers
@@ -200,8 +216,10 @@ void setup() {
   server.on("/api/pause", handleApiPause);
   server.on("/api/resume", handleApiResume);
   server.on("/api/cancel", handleApiCancel);
+  server.on("/api/cancel", handleApiCancel);
   server.on("/api/status", handleApiStatus);
   server.on("/api/settings", handleApiSettings);
+  server.on("/api/pin13", handleApiPin13);
   server.on("/api/manual", handleApiManual);
   server.onNotFound([](){ server.send(404, "text/plain", "Not Found"); });
 
