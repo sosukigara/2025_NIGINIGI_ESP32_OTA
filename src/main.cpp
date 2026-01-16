@@ -18,7 +18,9 @@ const int   daylightOffset_sec = 0;
 
 // Root handler
 void handleRoot() {
-  server.send(200, "text/html", html_standard);
+  String html = html_main; // Copy raw literal to String
+  html.replace("{{BUILD_TIME}}", __DATE__ " " __TIME__);
+  server.send(200, "text/html", html);
 }
 
 // API Endpoints

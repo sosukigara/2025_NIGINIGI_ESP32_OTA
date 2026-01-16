@@ -1,7 +1,7 @@
 #ifndef UI_Standard_H
 #define UI_Standard_H
 
-const char* html_standard = R"rawliteral(
+const char* html_main = R"rawliteral(
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -266,6 +266,28 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); backgrou
   </div>
 </div>
 
+<!-- Advanced Settings (Collapsible) -->
+<details class="card card-settings" style="margin-top:20px; background:#f9f9f9;">
+  <summary style="font-weight:700; color:var(--text-sub); cursor:pointer; list-style:none; padding:10px;">詳細設定</summary>
+  <div class="setting-item">
+    <span class="s-label">最終更新日時</span>
+    <span class="s-val" style="font-size:0.8rem; color:#aaa;">{{BUILD_TIME}}</span>
+  </div>
+   <div class="setting-item">
+    <span class="s-label">IP Address</span>
+    <span class="s-val" style="font-size:0.8rem; color:#aaa;" id="ip-disp">Detecting...</span>
+  </div>
+</details>
+<script>document.getElementById('ip-disp').innerText = window.location.hostname;</script>
+
+<!-- Completion Overlay -->
+<div id="comp-overlay" style="position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:200; display:none; flex-direction:column; align-items:center; justify-content:center; color:white; opacity:0; transition:opacity 0.3s;">
+  <div style="font-size:4rem; margin-bottom:20px;">🍙</div>
+  <h2 style="font-size:2rem; margin:0 0 10px 0;">完成！</h2>
+  <p style="color:#ddd;">美味しいおにぎりができました</p>
+  <button onclick="closeOverlay()" style="margin-top:30px; padding:12px 30px; border-radius:30px; background:white; color:black; font-weight:800; border:none; font-size:1.1rem;">閉じる</button>
+</div>
+
 <!-- Bottom Floating Actions -->
 <div class="bottom-bar">
   <button class="action-btn btn-start" onclick="start()">
@@ -283,9 +305,10 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); backgrou
 let isRunning = false;
 let loopT = null;
 let startTime = 0;
-let totalTime = 1.5; // Fixed 1.5s per grip
+let totalTime = 4.5; // Calculated Total (e.g. 3 * 1.5)
 let tgtCount = 3;    // Default 3
 let curCount = 0;
+// Note: We track global elapsed time for the specific progress bar logic requested
 
 function updVal(id, v, unit) { document.getElementById(id).innerText = v + unit; }
 
@@ -337,39 +360,26 @@ function start() {
   
   // tgtCount is set by setCount already
   curCount = 0;
-  totalTime = 1.5; // Ensure fixed time
+  totalTime = tgtCount * 1.5; // EXACT TOTAL TIME
   startTime = Date.now();
   
-  // Initialize progress with total expected time
+  // Initialize progress
   updTimeDisp();
   
   loopT = setInterval(() => {
     let elapsed = (Date.now() - startTime) / 1000;
     
-    // Cap elapsed at totalTime for single bar
-    let effectiveElapsed = Math.min(elapsed, totalTime);
-    let pct = (effectiveElapsed / totalTime) * 100;
-    
+    // Progress Bar: Simple 0 to 100% over Total Time
+    let pct = Math.min((elapsed / totalTime) * 100, 100);
     document.getElementById('yt-fill').style.width = pct + "%";
     
-    // Show Remaining Time (Total Sequence)
-    // Remaining Grips * 1.5s + current remaining
-    let remGrips = tgtCount - curCount - 1;
-    let currentRem = Math.max(0, totalTime - effectiveElapsed);
-    let totalRem = (remGrips * totalTime) + currentRem;
+    // Remaining Time Display
+    let rem = Math.max(0, Math.ceil(totalTime - elapsed));
+    document.getElementById('time-display').innerText = fmtTime(rem);
     
-    // Display total remaining time for the WHOLE job
-    document.getElementById('time-display').innerText = fmtTime(Math.ceil(totalRem));
-    
+    // Check for completion based on Total Time
     if(elapsed >= totalTime) {
-      curCount++;
-      if(curCount < tgtCount) {
-        startTime = Date.now();
-        // Maybe vibration per squeeze?
-        if(navigator.vibrate) navigator.vibrate(30);
-      } else {
-        finish();
-      }
+      finish();
     }
   }, 50);
 }
@@ -388,11 +398,22 @@ function finish() {
   document.getElementById('status-badge').innerText = "成形完了"; // Machine term
   document.getElementById('time-display').innerText = fmtTime(0);
   document.getElementById('yt-fill').style.width = "100%";
-  if(navigator.vibrate) navigator.vibrate([200,100,200]);
   
-  // Revert display to total time after a delay? Or keep 0:00?
-  // Let's reset to total time after 3 seconds for readiness
-  setTimeout(() => { if(!isRunning) updTimeDisp(); }, 3000);
+  // Show Completion Overlay
+  let ov = document.getElementById('comp-overlay');
+  ov.style.display = 'flex';
+  // Fade in
+  setTimeout(()=> ov.style.opacity = 1, 10);
+  
+  if(navigator.vibrate) navigator.vibrate([200,100,200,100,500]);
+}
+
+function closeOverlay() {
+  let ov = document.getElementById('comp-overlay');
+  ov.style.opacity = 0;
+  setTimeout(()=> ov.style.display = 'none', 300);
+  document.getElementById('yt-fill').style.width = "0%";
+  updTimeDisp(); // Reset time display
 }
 
 // Initial Disp
