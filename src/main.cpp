@@ -154,89 +154,72 @@ void setup() {
   Serial.println("ONIGIRI MACHINE (Main) READY");
   Serial.printf("Hold Time: %.2fs\n", holdTimeSec);
   Serial.print("Access URL: http://");
-  Serial.println(WiFi.localIP());
   Serial.println("=================================");
 }
 
+
+
+// Improved Loop Logic
 void loop() {
   server.handleClient();
   
-  // Non-blocking Sequence Logic
-  // Cycle: SQUEEZE (Move instant) -> Wait -> HOLD (Wait holdTime) -> RELEASE (Move instant) -> Wait -> REPEAT
-  
-  /*
-     Simplified Logic requested:
-     1. Move to Target (Instant command)
-     2. Stop for 0.5s (Hold)
-     3. Return to 270 (Instant command)
-  */
-
   unsigned long now = millis();
-  
+  static unsigned long cycleStartTime = 0;
+
   switch (currentState) {
     case IDLE:
       break;
       
     case SQUEEZING:
-      // Command was sent in handleStart, just wait for physical travel if needed?
-      // User said "Stop for 0.5s", implying the hold phase starts after move.
-      // Since servo move is fast, we assume it reaches quickly. 
-      // Let's transition to HOLDING immediately since write() returns instantly.
+      if (now - stateStartTime > 100) { // minimal debounce for state entry? No.
+         // Logic handled inside case logic below
+      }
+      // Entry logic needs to happen once.
+      // We set currentState=SQUEEZING in API/Cycle.
+      // But we need to record StartTime ONCE.
+      // Fix: API sets to PRE_SQUEEZE or we handle "first run" flag?
+      // Simpler: API sets SQUEEZING, and sets stateStartTime = millis().
+      // But cycleStartTime needs setting too for the loop.
+      
+      // Let's refine:
+      // API sets currentState = SQUEEZING; cycleStartTime = millis(); stateStartTime = millis();
+      // But we need to send the servo command ONCE.
+      // Use a flag or separate state?
+      // Or just write it continuously? (PWN is continuous anyway)
+      // Writing every loop is fine for ESP32Servo.
+      
+      {
+         int angle = 270 - (270 * targetStrength / 100);
+         setAllServos(angle);
+      }
+      
+      // Move to HOLDING immediately?
       stateStartTime = now;
       currentState = HOLDING;
       break;
       
     case HOLDING:
+      // Keep holding until time
       if (now - stateStartTime >= (holdTimeSec * 1000)) {
-        // Hold complete, release
-        setAllServos(REF_ANGLE); // Back to 270
+        setAllServos(REF_ANGLE);
         currentState = RELEASING;
-        stateStartTime = now;
+        stateStartTime = now; 
       }
       break;
       
     case RELEASING:
-      // Wait for return travel? User said "Max speed return".
-      // Let's give it a small buffer before next cycle, say 300ms
-      if (now - stateStartTime >= 300) {
+      // Wait until Total Cycle Time (1.5s) is passed
+      if (now - cycleStartTime >= 1500) {
         currentState = WAIT_CYCLE;
-        stateStartTime = now;
       }
       break;
       
    case WAIT_CYCLE:
-      // Cycle logic handled by UI mostly, but if we want robust backend loop:
-      // actually the current UI drives the loop timing (1.5s fixed in UI).
-      // The user wants backend to handle physical move.
-      // BUT the UI has `setInterval` driving the progress bar.
-      // The backend should probably just respond to "Start" and maybe the UI handles the timing?
-      // Wait, user said "Smartphone input... rotate servo... stop 0.5s... return".
-      // If UI sends "Start" once, backend should handle the logic?
-      // Or does UI send "Start" every time?
-      // Current UI: `loopT = setInterval... if (elapsed >= totalTime) { curCount++ ... }`
-      // It seems UI calculates EVERYTHING. 
-      // However, for precise physical control, backend is better.
-      // Let's stick to: UI sends START -> Backend does 1 squeeze? 
-      // No, UI code: `fetch('/api/start')` is called ONCE at the beginning.
-      // So Backend must manage the loop of 3 squeezes?
-      
-      // Checking old UI logic:
-      // UI: `start()` -> `fetch('/api/start')` -> `loopT` runs for `totalTime` (e.g. 4.5s)
-      // The UI shows progress.
-      // If backend handles loop, it needs to align with UI 4.5s.
-      // User said: "Fix molding time to 1.5s". 
-      // So 1 squeeze = 1.5s total cycle?
-      // If Hold=0.5s, Move+Return = 1.0s.
-      
-      // Let's implement the loop in Backend to ensure it happens even if WiFi drops.
-      
       currentCycle++;
       if (currentCycle < targetCount) {
-        // Next squeeze
-        int angle = 270 - (270 * targetStrength / 100);
-        setAllServos(angle);
+        cycleStartTime = now; // Mark start of next
         stateStartTime = now;
-        currentState = HOLDING; // Go straight to hold logic
+        currentState = SQUEEZING; 
       } else {
         currentState = IDLE;
       }

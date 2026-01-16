@@ -40,17 +40,17 @@ body {
   background: var(--bg);
   color: var(--text-main);
   font-family: 'Inter', 'Noto Sans JP', sans-serif;
-  margin: 0; padding: 20px;
+  margin: 0; padding: 16px; /* Reduced padding */
   min-height: 100vh;
   box-sizing: border-box;
   -webkit-font-smoothing: antialiased;
-  padding-bottom: 120px; /* Space for bottom bar */
+  padding-bottom: 100px; /* Space for bottom bar */
 }
 
 /* Header */
-.header { margin-bottom: 24px; padding-top: 10px; }
+.header { margin-bottom: 12px; padding-top: 4px; } /* Compact Header */
 .header h1 {
-  font-size: 2rem; font-weight: 800; margin: 0;
+  font-size: 1.8rem; font-weight: 800; margin: 0;
   letter-spacing: -0.02em;
 }
 .header-date { font-size: 0.9rem; color: var(--text-sub); font-weight: 600; margin-top: 4px; }
@@ -59,8 +59,8 @@ body {
 .card {
   background: var(--card-bg);
   border-radius: var(--radius);
-  padding: 20px;
-  margin-bottom: 16px;
+  padding: 16px; /* Reduced card padding */
+  margin-bottom: 12px; /* Reduced margin */
   box-shadow: var(--shadow);
   overflow: hidden;
 }
@@ -69,25 +69,26 @@ body {
 .card-monitor {
   display: flex; flex-direction: column;
   position: relative;
-  padding-bottom: 25px; /* Space for scrubber */
+  padding-bottom: 20px; 
 }
 .monitor-row { 
   display: flex; 
   flex-direction: column; 
   align-items: center;    
   justify-content: center;
-  gap: 12px;              
-  margin-bottom: 30px; 
+  gap: 8px;              
+  margin-bottom: 16px; /* Compacted */
 }
 .status-badge {
   background: #f2f2f7; color: var(--text-sub);
-  padding: 8px 16px; border-radius: 24px; /* Larger badge */
-  font-size: 1rem; font-weight: 700; /* Increased from 0.9rem */
+  padding: 6px 12px; border-radius: 20px;
+  font-size: 0.9rem; font-weight: 700;
 }
 .running .status-badge { background: #fee2e2; color: var(--yt-red); }
 
 .time-big {
-  font-size: 4rem; /* Even bigger */
+  /* Dynamic font size to fit screen */
+  font-size: clamp(3rem, 15vw, 4.5rem); 
   font-weight: 800; 
   font-variant-numeric: tabular-nums; 
   letter-spacing: -2px;
@@ -116,12 +117,12 @@ body {
 
 
 /* 2. Preset Card (Simplified) */
-.card-preset h3 { margin: 0 0 16px 0; font-size: 1.1rem; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.05em; }
-.preset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.card-preset h3 { margin: 0 0 10px 0; font-size: 1rem; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.05em; }
+.preset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .preset-btn {
   background: var(--bg); border: 2px solid transparent;
-  padding: 16px; border-radius: 16px; /* Larger padding */
-  font-size: 1.1rem; font-weight: 700; color: var(--text-main); /* Larger text */
+  padding: 12px; border-radius: 12px; /* Compact padding */
+  font-size: 1rem; font-weight: 700; color: var(--text-main);
   text-align: center; cursor: pointer; transition: 0.2s;
 }
 .preset-btn.active {
@@ -130,9 +131,9 @@ body {
 }
 
 /* 3. Settings Card (List Style) */
-.card-settings { padding: 24px; } /* More breathing room */
+.card-settings { padding: 16px; } /* Compact */
 .setting-item {
-  padding: 16px 0; /* More vertical space */
+  padding: 10px 0; /* Compact */
   display: flex; flex-direction: column; 
   border-bottom: 1px solid #f2f2f7;
 }
@@ -140,16 +141,16 @@ body {
 
 .s-header {
   display: flex; justify-content: space-between; align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 10px;
 }
-.s-label { font-size: 1.1rem; font-weight: 700; color: var(--text-main); } /* Larger Labels */
-.s-val { font-size: 1.2rem; font-weight: 700; color: var(--accent-purple); font-variant-numeric: tabular-nums; } /* Larger Values */
+.s-label { font-size: 1rem; font-weight: 700; color: var(--text-main); }
+.s-val { font-size: 1.1rem; font-weight: 700; color: var(--accent-purple); font-variant-numeric: tabular-nums; }
 
 /* Custom Large Range Slider */
 input[type=range] {
   -webkit-appearance: none;
   width: 100%;
-  height: 48px; /* Taller touch target */
+  height: 40px; /* Included touch target */
   background: transparent;
   cursor: pointer;
   margin: 0;
@@ -158,32 +159,32 @@ input[type=range]:focus { outline: none; }
 
 /* Track */
 input[type=range]::-webkit-slider-runnable-track {
-  width: 100%; height: 16px; /* Thicker track */
+  width: 100%; height: 12px; /* Thicker track */
   background: #e5e5ea;
-  border-radius: 8px;
+  border-radius: 6px;
   border: none;
 }
 /* Thumb */
 input[type=range]::-webkit-slider-thumb {
   -webkit-appearance: none;
-  height: 36px; width: 36px; /* Larger thumb */
+  height: 28px; width: 28px; /* Compact thumb */
   border-radius: 50%;
   background: #ffffff;
   border: 0.5px solid rgba(0,0,0,0.04);
   box-shadow: 0 4px 10px rgba(0,0,0,0.15);
-  margin-top: -10px; /* Center on track: (16 - 36)/2 */
+  margin-top: -8px; /* Center */
   transition: transform 0.1s;
 }
 input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); background: #f2f2f7; }
 
 /* Grip Count Buttons */
-.chk-group { display: flex; gap: 12px; justify-content: flex-end; }
+.chk-group { display: flex; gap: 10px; justify-content: flex-end; }
 .chk-btn {
-  width: 56px; height: 56px; /* Larger buttons */
+  width: 44px; height: 44px; /* Compact buttons */
   border-radius: 50%;
   background: #f2f2f7; color: var(--text-sub);
   display: flex; align-items: center; justify-content: center;
-  font-size: 1.3rem; font-weight: 700; /* Larger numbers */
+  font-size: 1.1rem; font-weight: 700;
   cursor: pointer; transition: 0.2s;
 }
 .chk-btn.active {
@@ -193,16 +194,16 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); backgrou
 
 /* Bottom Action Bar */
 .bottom-bar {
-  position: fixed; bottom: 30px; left: 20px; right: 20px;
+  position: fixed; bottom: 20px; left: 16px; right: 16px;
   z-index: 100;
   display: flex; gap: 12px;
   filter: drop-shadow(0 10px 20px rgba(0,0,0,0.1));
 }
 
 .action-btn {
-  flex: 1; height: 72px; /* Taller buttons */
-  border-radius: 36px; border: none;
-  font-size: 1.3rem; font-weight: 800; /* Larger text */
+  flex: 1; height: 60px; /* slightly smaller but still easy to hit */
+  border-radius: 30px; border: none;
+  font-size: 1.1rem; font-weight: 800;
   display: flex; align-items: center; justify-content: center; gap: 8px;
   cursor: pointer; box-shadow: inset 0 1px 1px rgba(255,255,255,0.4);
   transition: transform 0.1s;
