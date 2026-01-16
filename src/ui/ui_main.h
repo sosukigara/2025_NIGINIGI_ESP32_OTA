@@ -112,7 +112,8 @@ body {
 .yt-progress-fill {
   position: absolute; left: 0; top: 0; height: 100%;
   background: var(--yt-red); border-radius: 4px;
-  width: 0%; transition: width 0.1s linear;
+  width: 0%; 
+  transition: width 0s linear; /* Dynamically set by JS */
 }
 .yt-scrubber {
   position: absolute; right: -6px; top: 50%; width: 12px; height: 12px;
@@ -253,9 +254,6 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); backgrou
 </style>
 </head>
 <body>
-</style>
-</head>
-<body>
 
 <!-- VIEW: MAIN -->
 <div id="view-main">
@@ -311,8 +309,6 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); backgrou
     </div>
   </div>
 
-  <!-- Navigation Removed (Moved to Header) -->
-
   <!-- Bottom Floating Actions -->
   <div class="bottom-bar">
     <button class="action-btn btn-start" onclick="start()">
@@ -345,91 +341,70 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); backgrou
       </div>
     </div>
     
-    <!-- Hold Time Setting -->
     <div class="setting-item" style="flex-direction:row; align-items:center; justify-content:space-between;">
       <span class="s-label">保持時間 (秒)</span>
       <input type="number" id="inp-hold" value="0.5" step="0.1" style="width:80px; padding:12px; border-radius:12px; border:1px solid #ddd; text-align:center; font-size:1.1rem; font-weight:700;" onchange="saveHold(this.value)">
     </div>
 
-    <!-- Reach Time Setting -->
     <div class="setting-item" style="flex-direction:row; align-items:center; justify-content:space-between;">
       <span class="s-label">握り時間 (秒)</span>
       <input type="number" id="inp-reach" value="0.5" step="0.1" style="width:80px; padding:12px; border-radius:12px; border:1px solid #ddd; text-align:center; font-size:1.1rem; font-weight:700;" onchange="saveReach(this.value)">
     </div>
     
-    <!-- Manual Control -->
     <div class="setting-item">
       <div class="s-header">
         <span class="s-label">手動操作 (全サーボ)</span>
         <span class="s-val" id="man-val">270°</span>
       </div>
       <input type="range" min="0" max="270" value="270" style="direction:rtl;" oninput="manualServo(this.value)">
-      <div style="font-size:0.8rem; color:#aaa; margin-top:4px;">※ 左(270°)=緩 / 右(0°)=強</div>
     </div>
   </div>
 </div>
 
-<!-- Completion Overlay -->
-<div id="comp-overlay" style="position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:200; display:none; flex-direction:column; align-items:center; justify-content:center; color:white; opacity:0; transition:opacity 0.3s;">
-  <div style="font-size:4rem; margin-bottom:20px;">🍙</div>
-  <h2 style="font-size:2rem; margin:0 0 10px 0;">完成！</h2>
-  <p style="color:#ddd;">美味しいおにぎりができました</p>
-  <button onclick="closeOverlay()" style="margin-top:30px; padding:12px 30px; border-radius:30px; background:white; color:black; font-weight:800; border:none; font-size:1.1rem;">閉じる</button>
-</div>
-
 <script>
+let isRunning = false;
+let isSessionActive = false;
+let tgtCount = 3;
+
 document.getElementById('ip-disp').innerText = window.location.hostname;
 
-// Load Settings
-fetch('/api/settings?load=1')
-  .then(r=>r.json())
-  .then(d=>{
-    if(d.hold) document.getElementById('inp-hold').value = d.hold;
-    if(d.reach) document.getElementById('inp-reach').value = d.reach;
-  });
+function fetchSettings() {
+  fetch('/api/settings?load=1')
+    .then(r=>r.json())
+    .then(d=>{
+      if(d.hold) document.getElementById('inp-hold').value = d.hold;
+      if(d.reach) document.getElementById('inp-reach').value = d.reach;
+      updTimeDisp();
+    });
+}
+fetchSettings();
 
-function saveHold(v) { fetch('/api/settings?hold=' + v); }
-function saveReach(v) { fetch('/api/settings?reach=' + v); }
-
+function saveHold(v) { fetch('/api/settings?hold=' + v).then(()=>updTimeDisp()); }
+function saveReach(v) { fetch('/api/settings?reach=' + v).then(()=>updTimeDisp()); }
 function manualServo(v) {
   document.getElementById('man-val').innerText = v + "°";
   fetch('/api/manual?val=' + v);
 }
 
-function showSettings() {
-  document.getElementById('view-main').style.display = 'none';
-  document.getElementById('view-settings').style.display = 'block';
-  window.scrollTo(0,0);
-}
-
-function showMain() {
-  document.getElementById('view-settings').style.display = 'none';
-  document.getElementById('view-main').style.display = 'block';
-}
-
-let isRunning = false;
-let loopT = null;
-let startTime = 0;
-let totalTime = 4.5;
-let tgtCount = 3;
-let curCount = 0;
-
 function updVal(id, v, unit) { document.getElementById(id).innerText = v + unit; }
+function fmtTime(s) {
+  let min = Math.floor(s / 60);
+  let sec = Math.floor(s % 60);
+  return min + ":" + (sec < 10 ? "0" : "") + sec;
+}
 
-function calcTotal() { return Math.ceil(tgtCount * 1.5); }
-function updTimeDisp() { document.getElementById('time-display').innerText = fmtTime(calcTotal()); }
+function updTimeDisp() {
+  const h = parseFloat(document.getElementById('inp-hold').value) || 0.5;
+  const r = parseFloat(document.getElementById('inp-reach').value) || 0.5;
+  const total = tgtCount * (h + r + 0.3);
+  document.getElementById('time-display').innerText = fmtTime(Math.ceil(total));
+}
 
 function setCount(n, el) {
   tgtCount = n;
   document.querySelectorAll('.chk-btn').forEach(b => b.classList.remove('active'));
   el.classList.add('active');
   if(!isRunning) updTimeDisp();
-}
-
-function fmtTime(s) {
-  let min = Math.floor(s / 60);
-  let sec = Math.floor(s % 60);
-  return min + ":" + (sec < 10 ? "0" : "") + sec;
 }
 
 function setPreset(mode, el) {
@@ -440,63 +415,70 @@ function setPreset(mode, el) {
   if(mode==='normal') { s.value=50; }
   if(mode==='hard') { s.value=80; }
   if(mode==='kosen') { s.value=100; }
-  setCount(3, document.querySelectorAll('.chk-btn')[2]); 
   updVal('str-disp', s.value, '%');
 }
 
+function showSettings() {
+  document.getElementById('view-main').style.display = 'none';
+  document.getElementById('view-settings').style.display = 'block';
+}
+function showMain() {
+  document.getElementById('view-settings').style.display = 'none';
+  document.getElementById('view-main').style.display = 'block';
+}
+
 function start() {
-  if(navigator.vibrate) navigator.vibrate(50);
-  isRunning = true;
-  document.body.classList.add('running');
-  document.getElementById('status-badge').innerText = "成形中";
-  
-  // Send Params
-  let str = document.getElementById('inp-str').value;
-  fetch('/api/start?str=' + str + '&cnt=' + tgtCount);
-  
-  curCount = 0;
-  totalTime = tgtCount * 1.5;
-  startTime = Date.now();
-  updTimeDisp();
-  loopT = setInterval(() => {
-    let elapsed = (Date.now() - startTime) / 1000;
-    let pct = Math.min((elapsed / totalTime) * 100, 100);
-    document.getElementById('yt-fill').style.width = pct + "%";
-    let rem = Math.max(0, Math.ceil(totalTime - elapsed));
-    document.getElementById('time-display').innerText = fmtTime(rem);
-    if(elapsed >= totalTime) finish();
-  }, 50);
+  const s = document.getElementById('inp-str').value;
+  fetch(`/api/start?str=${s}&cnt=${tgtCount}`);
 }
+function stop() { fetch('/api/stop'); }
 
-function stop() {
-  if(navigator.vibrate) navigator.vibrate(50);
-  isRunning = false;
-  clearInterval(loopT);
-  document.body.classList.remove('running');
-  document.getElementById('status-badge').innerText = "一時停止";
-  fetch('/api/stop');
+function syncStatus() {
+  fetch('/api/status')
+    .then(r => r.json())
+    .then(d => {
+      const st = d.state;
+      const bar = document.getElementById('yt-fill');
+      const timeDisp = document.getElementById('time-display');
+      
+      document.body.classList.remove('running');
+      if(st !== 'IDLE') {
+        document.body.classList.add('running');
+        document.getElementById('status-badge').innerText = `成形中 (${d.cycle+1}/${d.total})`;
+        isRunning = true;
+        
+        // Dynamic CSS Animation
+        const elap = (d.elap || 0) / 1000;
+        const total = d.dur || 1;
+        const rem = Math.max(0, total - elap);
+        const pct = (elap / total) * 100;
+        
+        if(!isSessionActive) {
+           bar.style.transition = 'none';
+           bar.style.width = pct + '%';
+           setTimeout(() => {
+             bar.style.transition = `width ${rem}s linear`;
+             bar.style.width = '100%';
+           }, 50);
+           isSessionActive = true;
+        }
+        timeDisp.innerText = fmtTime(Math.ceil(rem));
+      } else {
+        document.getElementById('status-badge').innerText = "待機中";
+        isRunning = false;
+        if(isSessionActive) {
+          bar.style.transition = 'width 0.3s ease-out';
+          bar.style.width = '100%';
+          isSessionActive = false;
+        } else {
+          bar.style.transition = 'none';
+          bar.style.width = '0%';
+          updTimeDisp();
+        }
+      }
+    });
 }
-
-function finish() {
-  stop();
-  document.getElementById('status-badge').innerText = "成形完了";
-  document.getElementById('time-display').innerText = fmtTime(0);
-  document.getElementById('yt-fill').style.width = "100%";
-  let ov = document.getElementById('comp-overlay');
-  ov.style.display = 'flex';
-  setTimeout(()=> ov.style.opacity = 1, 10);
-  if(navigator.vibrate) navigator.vibrate([200,100,200,100,500]);
-}
-
-function closeOverlay() {
-  let ov = document.getElementById('comp-overlay');
-  ov.style.opacity = 0;
-  setTimeout(()=> ov.style.display = 'none', 300);
-  document.getElementById('yt-fill').style.width = "0%";
-  updTimeDisp();
-}
-
-updTimeDisp();
+setInterval(syncStatus, 1000);
 </script>
 </body>
 </html>

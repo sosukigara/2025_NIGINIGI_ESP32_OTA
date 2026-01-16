@@ -33,6 +33,7 @@ enum State { IDLE, SQUEEZING, HOLDING, RELEASING, WAIT_CYCLE };
 State currentState = IDLE;
 
 unsigned long stateStartTime = 0;
+unsigned long sessionStartTime = 0; // ms when /api/start was called
 float holdTimeSec = 0.5; // Default 0.5s
 float reachTimeSec = 0.5; // Default 0.5s
 int targetStrength = 50; // 0-100%
@@ -67,6 +68,7 @@ void handleApiStart() {
   currentState = SQUEEZING;
   currentCycle = 0;
   stateStartTime = millis();
+  sessionStartTime = stateStartTime; 
   
   // Ensure proper start from open position for ramping
   setAllServos(REF_ANGLE);
@@ -96,7 +98,34 @@ void handleApiSettings() {
   // Return JSON
   String json = "{";
   json += "\"hold\":" + String(holdTimeSec) + ",";
-  json += "\"reach\":" + String(reachTimeSec);
+  json += "\"reach\":" + String(reachTimeSec) + ",";
+  json += "\"pin13\":0"; // Temporarily hardcoded for this version
+  json += "}";
+  server.send(200, "application/json", json);
+}
+
+void handleApiStatus() {
+  String s;
+  switch (currentState) {
+    case IDLE: s = "IDLE"; break;
+    case SQUEEZING: s = "SQUEEZING"; break;
+    case HOLDING: s = "HOLDING"; break;
+    case RELEASING: s = "RELEASING"; break;
+    case WAIT_CYCLE: s = "WAIT_CYCLE"; break;
+  }
+
+  float cycleDur = reachTimeSec + holdTimeSec + 0.3; // estimated cycle time
+  float totalDur = targetCount * cycleDur;
+  
+  String json = "{";
+  json += "\"state\":\"" + s + "\",";
+  json += "\"cycle\":" + String(currentCycle) + ",";
+  json += "\"total\":" + String(targetCount) + ",";
+  json += "\"hold\":" + String(holdTimeSec) + ",";
+  json += "\"reach\":" + String(reachTimeSec) + ",";
+  json += "\"str\":" + String(targetStrength) + ",";
+  json += "\"elap\":" + String(millis() - sessionStartTime) + ",";
+  json += "\"dur\":" + String(totalDur);
   json += "}";
   server.send(200, "application/json", json);
 }
@@ -153,6 +182,7 @@ void setup() {
   
   // Routes
   server.on("/", handleRoot);
+  server.on("/api/status", handleApiStatus);
   server.on("/api/start", handleApiStart);
   server.on("/api/stop", handleApiStop);
   server.on("/api/settings", handleApiSettings);
