@@ -29,7 +29,7 @@ const int MAX_US = 2500;
 const int REF_ANGLE = 270; // 0% Strength
 
 // State Machine
-enum State { IDLE, SQUEEZING, HOLDING, RELEASING, WAIT_CYCLE };
+enum State { IDLE, SQUEEZING, HOLDING, RELEASING, WAIT_CYCLE, PAUSED };
 State currentState = IDLE;
 
 unsigned long stateStartTime = 0;
@@ -98,7 +98,49 @@ void handleApiSettings() {
   json += "\"hold\":" + String(holdTimeSec) + ",";
   json += "\"reach\":" + String(reachTimeSec);
   json += "}";
+  json += "\"reach\":" + String(reachTimeSec);
+  json += "}";
   server.send(200, "application/json", json);
+}
+
+void handleApiStatus() {
+  String s = "IDLE";
+  if(currentState == SQUEEZING) s = "SQUEEZING";
+  if(currentState == HOLDING) s = "HOLDING";
+  if(currentState == RELEASING) s = "RELEASING";
+  if(currentState == WAIT_CYCLE) s = "WAIT_CYCLE";
+  if(currentState == PAUSED) s = "PAUSED";
+  
+  String json = "{";
+  json += "\"state\":\"" + s + "\",";
+  json += "\"cycle\":" + String(currentCycle) + ",";
+  json += "\"total\":" + String(targetCount) + ",";
+  json += "\"hold\":" + String(holdTimeSec) + ",";
+  json += "\"reach\":" + String(reachTimeSec) + ",";
+  json += "\"str\":" + String(targetStrength);
+  json += "}";
+  server.send(200, "application/json", json);
+}
+
+void handleApiPause() {
+  currentState = PAUSED;
+  setAllServos(REF_ANGLE); // Safe pos
+  server.send(200, "text/plain", "OK");
+}
+
+void handleApiResume() {
+  if (currentState == PAUSED) {
+    currentState = SQUEEZING; // Resume from start of squeeze for safety/simplicity
+    stateStartTime = millis(); 
+  }
+  server.send(200, "text/plain", "OK");
+}
+
+void handleApiCancel() {
+  currentState = IDLE;
+  currentCycle = 0;
+  setAllServos(REF_ANGLE);
+  server.send(200, "text/plain", "OK");
 }
 
 void handleApiManual() {
@@ -154,7 +196,11 @@ void setup() {
   // Routes
   server.on("/", handleRoot);
   server.on("/api/start", handleApiStart);
-  server.on("/api/stop", handleApiStop);
+  server.on("/api/stop", handleApiPause); // Stop button now just Pauses
+  server.on("/api/pause", handleApiPause);
+  server.on("/api/resume", handleApiResume);
+  server.on("/api/cancel", handleApiCancel);
+  server.on("/api/status", handleApiStatus);
   server.on("/api/settings", handleApiSettings);
   server.on("/api/manual", handleApiManual);
   server.onNotFound([](){ server.send(404, "text/plain", "Not Found"); });
@@ -238,6 +284,10 @@ void loop() {
       if (now - stateStartTime >= 300) { // 0.3s buffer (Fastest Release)
         currentState = WAIT_CYCLE;
       }
+      break;
+      
+    case PAUSED:
+      // Do nothing, wait for Resume or Cancel
       break;
       
    case WAIT_CYCLE:

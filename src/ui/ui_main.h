@@ -219,10 +219,19 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); backgrou
 .action-btn:active { transform: scale(0.98); }
 
 .btn-start { background: var(--text-main); color: white; }
-.btn-start { background: var(--text-main); color: white; }
-.btn-stop { background: var(--danger); color: white; display: none; } /* Red Stop Button */
+.btn-stop { background: var(--danger); color: white; display: none; }
+.btn-resume { background: var(--accent-blue); color: white; display: none; }
+.btn-cancel { background: var(--text-sub); color: white; display: none; }
+
+/* State: Running */
 .running .btn-start { display: none; }
-.running .btn-stop { display: flex; } /* Keep Red */
+.running .btn-stop { display: flex; }
+
+/* State: Paused */
+.paused .btn-start { display: none; }
+.paused .btn-stop { display: none; }
+.paused .btn-resume { display: flex; }
+.paused .btn-cancel { display: flex; }
 
 /* Responsive Compact Mode for Small Screens */
 @media (max-height: 750px) {
@@ -323,6 +332,16 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); backgrou
     <button class="action-btn btn-stop" onclick="stop()">
       <span class="material-icons-round">stop_circle</span>
       停止
+    </button>
+    
+    <button class="action-btn btn-cancel" onclick="cancel()">
+      <span class="material-icons-round">close</span>
+      中止
+    </button>
+    
+    <button class="action-btn btn-resume" onclick="resume()">
+      <span class="material-icons-round">play_arrow</span>
+      再開
     </button>
   </div>
 </div>
@@ -454,27 +473,71 @@ function start() {
   let str = document.getElementById('inp-str').value;
   fetch('/api/start?str=' + str + '&cnt=' + tgtCount);
   
-  curCount = 0;
-  totalTime = tgtCount * 1.5;
-  startTime = Date.now();
+  // Optimistic update
+  isRunning = true;
+  totalTime = tgtCount * 1.5; // Approx
   updTimeDisp();
-  loopT = setInterval(() => {
-    let elapsed = (Date.now() - startTime) / 1000;
-    let pct = Math.min((elapsed / totalTime) * 100, 100);
-    document.getElementById('yt-fill').style.width = pct + "%";
-    let rem = Math.max(0, Math.ceil(totalTime - elapsed));
-    document.getElementById('time-display').innerText = fmtTime(rem);
-    if(elapsed >= totalTime) finish();
-  }, 50);
 }
+
+// Global Polling
+setInterval(() => {
+  fetch('/api/status')
+    .then(r=>r.json())
+    .then(d => {
+      // Sync State
+      const st = d.state;
+      document.body.classList.remove('running', 'paused');
+      
+      if(st === 'SQUEEZING' || st === 'HOLDING' || st === 'RELEASING' || st === 'WAIT_CYCLE') {
+        document.body.classList.add('running');
+        document.getElementById('status-badge').innerText = "成形中 (" + (d.cycle+1) + "/" + d.total + ")";
+        isRunning = true;
+      } else if (st === 'PAUSED') {
+        document.body.classList.add('paused');
+        document.getElementById('status-badge').innerText = "一時停止";
+        isRunning = false;
+      } else {
+        document.getElementById('status-badge').innerText = "待機中";
+        isRunning = false;
+      }
+
+      // Sync Params
+      // Only update inputs if NOT running to avoid jumping while editing
+      if(!isRunning && st === 'IDLE') {
+          // Sync logic if needed
+      }
+      
+      // Update Progress (Approximate based on cycle count for now)
+      if(isRunning || st === 'PAUSED') {
+         let total = d.total * (d.reach + d.hold + 0.5); // Est cycle time
+         let current = d.cycle * (d.reach + d.hold + 0.5); 
+         // Crude progress, but effective for sync
+         let pct = Math.min((current / total) * 100, 100);
+         document.getElementById('yt-fill').style.width = pct + "%";
+         
+         // Remaining time est
+         let elap = current; // approx
+         let rem = Math.max(0, Math.ceil(total - current));
+         document.getElementById('time-display').innerText = fmtTime(rem);
+      } else {
+         document.getElementById('yt-fill').style.width = "0%";
+      }
+    });
+}, 1000);
 
 function stop() {
   if(navigator.vibrate) navigator.vibrate(50);
-  isRunning = false;
-  clearInterval(loopT);
-  document.body.classList.remove('running');
-  document.getElementById('status-badge').innerText = "一時停止";
-  fetch('/api/stop');
+  fetch('/api/pause');
+}
+
+function resume() {
+  if(navigator.vibrate) navigator.vibrate(50);
+  fetch('/api/resume');
+}
+
+function cancel() {
+  if(navigator.vibrate) navigator.vibrate(50);
+  fetch('/api/cancel');
 }
 
 function finish() {
