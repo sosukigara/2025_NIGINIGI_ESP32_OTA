@@ -227,17 +227,12 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); backgrou
 
 <!-- 3. Settings -->
 <div class="card card-settings">
-  <div class="setting-item">
+  <div class="setting-item" style="border-bottom:none;">
     <div class="s-header">
       <span class="s-label">握りの強さ</span>
       <span class="s-val" id="str-disp">50%</span>
     </div>
     <input type="range" id="inp-str" min="0" max="100" value="50" oninput="updVal('str-disp', this.value, '%')">
-  </div>
-  
-  <div class="setting-item" style="flex-direction:row; align-items:center; justify-content:space-between; padding:16px 0;">
-    <span class="s-label">握り回数</span>
-    <input type="number" class="num-input" id="inp-count" value="3" min="1" max="10">
   </div>
 </div>
 
@@ -259,7 +254,8 @@ let isRunning = false;
 let loopT = null;
 let startTime = 0;
 let totalTime = 1.5; // Fixed 1.5s per grip
-let tgtCount = 0, curCount = 0;
+let tgtCount = 3;    // Fixed 3 grips
+let curCount = 0;
 
 function updVal(id, v, unit) { document.getElementById(id).innerText = v + unit; }
 
@@ -274,13 +270,12 @@ function setPreset(mode, el) {
   document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
   el.classList.add('active');
   const s = document.getElementById('inp-str');
-  const c = document.getElementById('inp-count');
   
-  // Adjusted presets for Grip Count
-  if(mode==='soft') { s.value=30; c.value=3; }
-  if(mode==='normal') { s.value=50; c.value=5; }
-  if(mode==='hard') { s.value=80; c.value=7; }
-  if(mode==='kosen') { s.value=100; c.value=10; }
+  // All presets unified to 3 grips (logic fixed), only Strength varies
+  if(mode==='soft') { s.value=30; }
+  if(mode==='normal') { s.value=50; }
+  if(mode==='hard') { s.value=80; }
+  if(mode==='kosen') { s.value=100; }
   
   updVal('str-disp', s.value, '%');
 }
@@ -292,7 +287,7 @@ function start() {
   document.getElementById('status-badge').innerText = "成形中"; // Machine term
   fetch('/api/start');
   
-  tgtCount = parseInt(document.getElementById('inp-count').value);
+  tgtCount = 3; // Fixed 3
   curCount = 0;
   totalTime = 1.5; // Ensure fixed time
   startTime = Date.now();
