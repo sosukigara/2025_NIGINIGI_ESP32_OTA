@@ -14,17 +14,12 @@ const char* html_standard = R"rawliteral(
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
 
 <style>
-:root {
-  --bg: #f2f2f7;
-  --card-bg: #ffffff;
-  --text-main: #1c1c1e;
-  --text-sub: #8e8e93;
-  --accent-purple: #5e5ce6;
-  --accent-blue: #007aff;
-  --danger: #ff3b30;
-  
-  --shadow: 0 4px 12px rgba(0,0,0,0.03);
-  --radius: 16px;
+
+/* Global Reset for Mobile App Feel */
+* {
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 body {
@@ -56,30 +51,44 @@ body {
   overflow: hidden;
 }
 
-/* 1. Status/Monitor Card (Simplified) */
+/* 1. Status/Monitor Card (YouTube Style) */
 .card-monitor {
   display: flex; flex-direction: column;
   position: relative;
+  padding-bottom: 25px; /* Space for scrubber */
 }
-.monitor-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.monitor-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 30px; }
 .status-badge {
   background: #f2f2f7; color: var(--text-sub);
   padding: 6px 12px; border-radius: 20px;
   font-size: 0.8rem; font-weight: 700;
 }
-.running .status-badge { background: #e8f5e9; color: #2e7d32; }
+.running .status-badge { background: #fee2e2; color: var(--yt-red); }
 
 .time-big {
-  font-size: 2rem; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -1px;
+  font-size: 2.2rem; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -1px;
 }
 
-.visualizer {
-  height: 40px; display: flex; align-items: flex-end; gap: 4px; opacity: 0.3;
+/* YouTube Style Progress Bar */
+.yt-progress-container {
+  width: 100%; height: 4px; border-radius: 2px;
+  background: #e5e5ea; position: relative;
+  cursor: default; /* No pointer cursor implies no interaction */
 }
-.running .visualizer { opacity: 1; }
-.v-bar {
-  flex: 1; background: var(--accent-purple); border-radius: 2px; height: 4px; transition: height 0.1s;
+.yt-progress-fill {
+  position: absolute; left: 0; top: 0; height: 100%;
+  background: var(--yt-red); border-radius: 2px;
+  width: 0%; transition: width 0.1s linear;
 }
+.yt-scrubber {
+  position: absolute; right: -6px; top: 50%; width: 12px; height: 12px;
+  background: var(--yt-red); border-radius: 50%;
+  transform: translateY(-50%) scale(0); 
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.card-monitor:hover .yt-scrubber, .running .yt-scrubber { transform: translateY(-50%) scale(1); }
+
 
 /* 2. Preset Card (Simplified) */
 .card-preset h3 { margin: 0 0 16px 0; font-size: 1rem; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.05em; }
@@ -144,18 +153,18 @@ input[type=range] { width: 120px; accent-color: var(--accent-purple); }
   <h1>おにぎり成形機</h1>
 </div>
 
-<!-- 1. Monitor -->
+<!-- 1. Monitor (YouTube Style) -->
 <div class="card card-monitor">
   <div class="monitor-row">
     <div class="status-badge" id="status-badge">待機中</div>
-    <div class="time-big" id="time-display">10.0s</div>
+    <div class="time-big" id="time-display">0:00</div>
   </div>
-  <div class="visualizer" id="viz">
-    <div class="v-bar"></div><div class="v-bar"></div><div class="v-bar"></div><div class="v-bar"></div>
-    <div class="v-bar"></div><div class="v-bar"></div><div class="v-bar"></div><div class="v-bar"></div>
-    <div class="v-bar"></div><div class="v-bar"></div><div class="v-bar"></div><div class="v-bar"></div>
-    <div class="v-bar"></div><div class="v-bar"></div><div class="v-bar"></div><div class="v-bar"></div>
-    <div class="v-bar"></div><div class="v-bar"></div><div class="v-bar"></div><div class="v-bar"></div>
+  
+  <!-- Progress Bar -->
+  <div class="yt-progress-container">
+    <div class="yt-progress-fill" id="yt-fill">
+      <div class="yt-scrubber"></div>
+    </div>
   </div>
 </div>
 
@@ -193,13 +202,11 @@ input[type=range] { width: 120px; accent-color: var(--accent-purple); }
 
 <!-- Bottom Floating Actions -->
 <div class="bottom-bar">
-  <!-- Start Button -->
   <button class="action-btn btn-start" onclick="start()">
     <span class="material-icons-round">play_arrow</span>
     成形開始
   </button>
   
-  <!-- Stop Button (Hidden by default) -->
   <button class="action-btn btn-stop" onclick="stop()">
     <span class="material-icons-round">stop_circle</span>
     停止
@@ -214,6 +221,13 @@ let totalTime = 10;
 let tgtCount = 0, curCount = 0;
 
 function updVal(id, v) { document.getElementById(id).innerText = v + "%"; }
+
+// Format seconds to M:SS (like YouTube)
+function fmtTime(s) {
+  let min = Math.floor(s / 60);
+  let sec = Math.floor(s % 60);
+  return min + ":" + (sec < 10 ? "0" : "") + sec;
+}
 
 function setPreset(mode, el) {
   document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
@@ -234,7 +248,7 @@ function start() {
   if(navigator.vibrate) navigator.vibrate(50);
   isRunning = true;
   document.body.classList.add('running');
-  document.getElementById('status-badge').innerText = "成形中...";
+  document.getElementById('status-badge').innerText = "成形中"; // Machine term
   fetch('/api/start');
   
   tgtCount = parseInt(document.getElementById('inp-count').value);
@@ -244,17 +258,15 @@ function start() {
   
   loopT = setInterval(() => {
     let elapsed = (Date.now() - startTime) / 1000;
-    let remain = Math.max(0, totalTime - elapsed);
     
-    document.getElementById('time-display').innerText = remain.toFixed(1) + "s";
+    // Cap elapsed at totalTime for single bar
+    let effectiveElapsed = Math.min(elapsed, totalTime);
+    let pct = (effectiveElapsed / totalTime) * 100;
     
-    // Viz
-    let str = document.getElementById('inp-str').value;
-    document.querySelectorAll('.v-bar').forEach(b => {
-      b.style.height = (10 + Math.random() * str * 0.8) + "%";
-    });
+    document.getElementById('yt-fill').style.width = pct + "%";
+    document.getElementById('time-display').innerText = fmtTime(effectiveElapsed) + " / " + fmtTime(totalTime);
     
-    if(remain <= 0) {
+    if(elapsed >= totalTime) {
       curCount++;
       if(curCount < tgtCount) {
         startTime = Date.now();
@@ -276,13 +288,14 @@ function stop() {
 
 function finish() {
   stop();
-  document.getElementById('status-badge').innerText = "完了";
-  document.getElementById('time-display').innerText = "Done";
+  document.getElementById('status-badge').innerText = "成形完了"; // Machine term
+  document.getElementById('time-display').innerText = fmtTime(totalTime);
+  document.getElementById('yt-fill').style.width = "100%";
   if(navigator.vibrate) navigator.vibrate([200,100,200]);
 }
 
-// Init visualizer
-document.querySelectorAll('.v-bar').forEach(b => b.style.height = "10%");
+// Initial Disp
+document.getElementById('time-display').innerText = "0:00 / " + fmtTime(10);
 </script>
 </body>
 </html>
