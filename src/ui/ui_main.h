@@ -210,7 +210,8 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); backgrou
 .action-btn:active { transform: scale(0.98); }
 
 .btn-start { background: var(--text-main); color: white; }
-.btn-stop { background: var(--bg); color: var(--danger); display: none; }
+.btn-start { background: var(--text-main); color: white; }
+.btn-stop { background: var(--danger); color: white; display: none; } /* Red Stop Button */
 .running .btn-start { display: none; }
 .running .btn-stop { display: flex; background: white; }
 
@@ -315,6 +316,12 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); backgrou
       <span class="s-label">保持時間 (秒)</span>
       <input type="number" id="inp-hold" value="0.5" step="0.1" style="width:80px; padding:12px; border-radius:12px; border:1px solid #ddd; text-align:center; font-size:1.1rem; font-weight:700;" onchange="saveHold(this.value)">
     </div>
+
+    <!-- Reach Time Setting -->
+    <div class="setting-item" style="flex-direction:row; align-items:center; justify-content:space-between;">
+      <span class="s-label">到達時間 (秒)</span>
+      <input type="number" id="inp-reach" value="0.5" step="0.1" style="width:80px; padding:12px; border-radius:12px; border:1px solid #ddd; text-align:center; font-size:1.1rem; font-weight:700;" onchange="saveReach(this.value)">
+    </div>
     
     <!-- Manual Control -->
     <div class="setting-item">
@@ -341,14 +348,14 @@ document.getElementById('ip-disp').innerText = window.location.hostname;
 
 // Load Settings
 fetch('/api/settings?load=1')
-  .then(r=>r.text())
-  .then(t=>{
-    if(t) document.getElementById('inp-hold').value = t;
+  .then(r=>r.json())
+  .then(d=>{
+    if(d.hold) document.getElementById('inp-hold').value = d.hold;
+    if(d.reach) document.getElementById('inp-reach').value = d.reach;
   });
 
-function saveHold(v) {
-  fetch('/api/settings?hold=' + v);
-}
+function saveHold(v) { fetch('/api/settings?hold=' + v); }
+function saveReach(v) { fetch('/api/settings?reach=' + v); }
 
 function manualServo(v) {
   document.getElementById('man-val').innerText = v + "°";

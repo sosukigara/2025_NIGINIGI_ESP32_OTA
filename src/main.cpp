@@ -34,6 +34,7 @@ State currentState = IDLE;
 
 unsigned long stateStartTime = 0;
 float holdTimeSec = 0.5; // Default 0.5s
+float reachTimeSec = 0.5; // Default 0.5s
 int targetStrength = 50; // 0-100%
 int targetCount = 3;
 int currentCycle = 0;
@@ -87,9 +88,20 @@ void handleApiSettings() {
   if (server.hasArg("hold")) {
     holdTimeSec = server.arg("hold").toFloat();
     preferences.putFloat("hold", holdTimeSec);
-    Serial.printf("[API] Hold Time Updated: %.2fs\n", holdTimeSec);
+    Serial.printf("[API] Hold: %.2fs\n", holdTimeSec);
   }
-  server.send(200, "text/plain", String(holdTimeSec));
+  if (server.hasArg("reach")) {
+    reachTimeSec = server.arg("reach").toFloat();
+    preferences.putFloat("reach", reachTimeSec);
+    Serial.printf("[API] Reach: %.2fs\n", reachTimeSec);
+  }
+  
+  // Return JSON
+  String json = "{";
+  json += "\"hold\":" + String(holdTimeSec) + ",";
+  json += "\"reach\":" + String(reachTimeSec);
+  json += "}";
+  server.send(200, "application/json", json);
 }
 
 void handleApiManual() {
@@ -107,8 +119,10 @@ void setup() {
   Serial.begin(115200);
   
   // Preferences
+  // Preferences
   preferences.begin("job", false);
   holdTimeSec = preferences.getFloat("hold", 0.5);
+  reachTimeSec = preferences.getFloat("reach", 0.5);
   
   // Servo Setup
   // Allow allocation of all timers
@@ -171,31 +185,33 @@ void loop() {
       break;
       
     case SQUEEZING:
-      if (now - stateStartTime > 100) { // minimal debounce for state entry? No.
-         // Logic handled inside case logic below
+      // Mark start of this cycle if new
+      if (cycleStartTime == 0 || now - cycleStartTime > 5000) { // Safety reset
+         cycleStartTime = now; 
       }
-      // Entry logic needs to happen once.
-      // We set currentState=SQUEEZING in API/Cycle.
-      // But we need to record StartTime ONCE.
-      // Fix: API sets to PRE_SQUEEZE or we handle "first run" flag?
-      // Simpler: API sets SQUEEZING, and sets stateStartTime = millis().
-      // But cycleStartTime needs setting too for the loop.
-      
-      // Let's refine:
-      // API sets currentState = SQUEEZING; cycleStartTime = millis(); stateStartTime = millis();
-      // But we need to send the servo command ONCE.
-      // Use a flag or separate state?
-      // Or just write it continuously? (PWN is continuous anyway)
-      // Writing every loop is fine for ESP32Servo.
       
       {
-         int angle = 270 - (270 * targetStrength / 100);
-         setAllServos(angle);
+         // Ramping Logic
+         // Target Angle: 0% = 270, 100% = 0
+         int targetAngle = 270 - (270 * targetStrength / 100);
+         
+         // Elapsed since state start
+         unsigned long elapsed = now - stateStartTime;
+         unsigned long duration = reachTimeSec * 1000;
+         
+         if (duration == 0) duration = 1; // avoid div0
+         
+         if (elapsed >= duration) {
+           // Finished reaching
+           setAllServos(targetAngle);
+           stateStartTime = now;
+           currentState = HOLDING;
+         } else {
+           // Interpolate: Map elapsed time to angle range
+           int currentAngle = map(elapsed, 0, duration, REF_ANGLE, targetAngle);
+           setAllServos(currentAngle);
+         }
       }
-      
-      // Move to HOLDING immediately?
-      stateStartTime = now;
-      currentState = HOLDING;
       break;
       
     case HOLDING:
@@ -208,8 +224,16 @@ void loop() {
       break;
       
     case RELEASING:
-      // Wait until Total Cycle Time (1.5s) is passed
-      if (now - cycleStartTime >= 1500) {
+      // Wait until Total Cycle Time is passed
+      // Total Cycle = Reach (var) + Hold (var) + Release (fixed 0.5s for now?)
+      // Actually user wanted 1.5s total cycle before.
+      // Now customizable.
+      // Let's say RELEASING takes 0.5s to return.
+      // Total dynamic cycle logic handling?
+      // Or just simple state transitions?
+      
+      // Let's make RELEASING just a quick return state.
+      if (now - stateStartTime >= 500) { // 0.5s return time
         currentState = WAIT_CYCLE;
       }
       break;
