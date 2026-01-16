@@ -24,11 +24,11 @@ const int PIN_SERVO3 = 27;
 
 // Servo Config (270 degree servo, 500-2500us usually covers full range)
 // Logic: 0 deg = 100% (Strong), 270 deg = 0% (Weak/Rest)
+// サーボ設定 (0-270度)
+const int ANGLE_REST = 270;
+const int ANGLE_MAX  = 0;
 const int MIN_US = 500;
 const int MAX_US = 2500;
-// サーボ設定 (us制御)
-const int US_MIN = 500;  // 270度 (Weak/Rest)
-const int US_MAX = 2500; // 0度 (Strong/Squeeze)
 
 // State Machine
 // 状態管理
@@ -45,12 +45,14 @@ int targetStrength = 0; // Global variable for target strength
 int targetCount = 0;    // Global variable for target count
 int currentCycle = 0;   // Global variable for current cycle
 
-// ヘルパー: パーセントからパルス幅(us)を計算
-int strengthToUs(int strength) {
-    return map(strength, 0, 100, US_MIN, US_MAX);
+// ヘルパー: 全サーボ制御 (角度 0-270)
+void setAllServos(int angle) {
+    servo1.write(angle);
+    servo2.write(angle);
+    servo3.write(angle);
 }
 
-// ヘルパー: 全サーボ制御 (us指定)
+// 互換性維持のためのマイクロ秒制御 (内部で使用)
 void setAllServosUs(int us) {
     servo1.writeMicroseconds(us);
     servo2.writeMicroseconds(us);
@@ -86,7 +88,7 @@ void handleApiStart() {
 void handleApiStop() {
     Serial.println("[API] Stop");
     currentState = IDLE;
-    setAllServosUs(US_MIN);
+    setAllServos(ANGLE_REST);
     server.send(200, "text/plain", "OK");
 }
 
@@ -114,18 +116,14 @@ void handleApiSettings() {
 void handleApiManual() {
   if (server.hasArg("val")) {
     int pct = server.arg("val").toInt();
-    // pct is 0-100% from new UI
-    int us = strengthToUs(pct);
+    int angle = map(pct, 0, 100, ANGLE_REST, ANGLE_MAX);
     currentState = IDLE;
-    setAllServosUs(us);
-    Serial.printf("[API] Manual: %d%% (%d us)\n", pct, us);
+    setAllServos(angle);
+    Serial.printf("[API] Manual: %d%% (%d deg)\n", pct, angle);
   } else if (server.hasArg("deg")) {
-    // Legacy support for degrees
     int deg = server.arg("deg").toInt();
     currentState = IDLE;
-    servo1.write(deg);
-    servo2.write(deg);
-    servo3.write(deg);
+    setAllServos(deg);
     Serial.printf("[API] Manual: %d deg\n", deg);
   }
   server.send(200, "text/plain", "OK");
@@ -192,11 +190,11 @@ void setup() {
   servo1.setPeriodHertz(50);
   servo2.setPeriodHertz(50);
   servo3.setPeriodHertz(50);
-    servo1.attach(PIN_SERVO1, US_MIN, US_MAX);
-    servo2.attach(PIN_SERVO2, US_MIN, US_MAX);
-    servo3.attach(PIN_SERVO3, US_MIN, US_MAX);
+    servo1.attach(PIN_SERVO1, MIN_US, MAX_US);
+    servo2.attach(PIN_SERVO2, MIN_US, MAX_US);
+    servo3.attach(PIN_SERVO3, MIN_US, MAX_US);
     
-    setAllServosUs(US_MIN);
+    setAllServos(ANGLE_REST);
   
   // WiFi
   WiFi.begin(ssid, password);
@@ -247,8 +245,8 @@ void loop() {
       break;
 
     case PREPARE_SQUEEZE:
-      setAllServosUs(US_MIN);
-      if (now - stateStartTime > 200) { // Wait 200ms in PREPARE_SQUEEZE
+      setAllServos(ANGLE_REST);
+      if (now - stateStartTime > 200) { 
         currentState = SQUEEZING;
       }
       break;
@@ -256,24 +254,24 @@ void loop() {
     case SQUEEZING:
       {
         unsigned long duration = reachTimeSec * 1000;
-        if (duration == 0) duration = 1; // Avoid division by zero
+        if (duration == 0) duration = 1; 
         unsigned long elapsed = now - stateStartTime;
-        int targetUs = strengthToUs(targetStrength);
-        int startUs = US_MIN;
+        
+        int targetAngle = map(targetStrength, 0, 100, ANGLE_REST, ANGLE_MAX);
+        int startAngle = ANGLE_REST;
 
         if (elapsed >= duration) {
-          setAllServosUs(targetUs);
+          setAllServos(targetAngle);
           currentState = HOLDING;
         } else {
           float progress = (float)elapsed / (float)duration;
-          int currentUs = startUs + (targetUs - startUs) * progress;
-          setAllServosUs(currentUs);
+          int currentAngle = startAngle + (targetAngle - startAngle) * progress;
+          setAllServos(currentAngle);
           
-          // Debug PWM output every 10% progress
           static int lastLoggedPct = -1;
           int currentPct = (int)(progress * 10);
           if (currentPct != lastLoggedPct) {
-            Serial.printf("[PWM] Squeezing: %d us (%d%%)\n", currentUs, (int)(progress*100));
+            Serial.printf("[PWM] Squeezing: %d deg (%d%%)\n", currentAngle, (int)(progress*100));
             lastLoggedPct = currentPct;
           }
         }
@@ -287,8 +285,8 @@ void loop() {
       break;
       
     case RELEASING:
-      setAllServosUs(US_MIN); // Immediately return to rest position
-      if (now - stateStartTime >= 300) { // Wait 300ms for release to complete
+      setAllServos(ANGLE_REST);
+      if (now - stateStartTime >= 300) { 
         currentState = WAIT_CYCLE;
       }
       break;
@@ -296,11 +294,11 @@ void loop() {
     case WAIT_CYCLE:
       currentCycle++;
       if (currentCycle < targetCount) {
-        currentState = SQUEEZING; // Start next cycle
+        currentState = SQUEEZING; 
       } else {
         Serial.println("Session Finished.");
-        setAllServosUs(US_MIN); // Ensure return to open position (270 deg)
-        currentState = IDLE; // All cycles complete
+        setAllServos(ANGLE_REST);
+        currentState = IDLE; 
       }
       break;
   }
