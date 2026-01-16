@@ -289,10 +289,19 @@ let curCount = 0;
 
 function updVal(id, v, unit) { document.getElementById(id).innerText = v + unit; }
 
+function calcTotal() {
+  return Math.ceil(tgtCount * 1.5);
+}
+
+function updTimeDisp() {
+  document.getElementById('time-display').innerText = fmtTime(calcTotal());
+}
+
 function setCount(n, el) {
   tgtCount = n;
   document.querySelectorAll('.chk-btn').forEach(b => b.classList.remove('active'));
   el.classList.add('active');
+  if(!isRunning) updTimeDisp();
 }
 
 // Format seconds to M:SS (like YouTube)
@@ -330,6 +339,9 @@ function start() {
   curCount = 0;
   totalTime = 1.5; // Ensure fixed time
   startTime = Date.now();
+  
+  // Initialize progress with total expected time
+  updTimeDisp();
   
   loopT = setInterval(() => {
     let elapsed = (Date.now() - startTime) / 1000;
@@ -377,10 +389,14 @@ function finish() {
   document.getElementById('time-display').innerText = fmtTime(0);
   document.getElementById('yt-fill').style.width = "100%";
   if(navigator.vibrate) navigator.vibrate([200,100,200]);
+  
+  // Revert display to total time after a delay? Or keep 0:00?
+  // Let's reset to total time after 3 seconds for readiness
+  setTimeout(() => { if(!isRunning) updTimeDisp(); }, 3000);
 }
 
 // Initial Disp
-document.getElementById('time-display').innerText = fmtTime(0);
+updTimeDisp();
 </script>
 </body>
 </html>
