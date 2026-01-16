@@ -390,8 +390,8 @@ function togglePin13(el) { fetch('/api/pin13?val=' + (el.checked ? 1 : 0)); }
 
 function manualServo(pct) {
   document.getElementById('man-val').innerText = pct + "%";
-  const deg = 270 - (pct * 2.7);
-  fetch('/api/manual?val=' + Math.floor(deg));
+  // 0% = 開(270度), 100% = 閉(0度)
+  fetch('/api/manual?val=' + pct);
 }
 
 function updVal(id, v, unit) { document.getElementById(id).innerText = v + unit; }
