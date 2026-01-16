@@ -275,7 +275,10 @@ function start() {
     let pct = (effectiveElapsed / totalTime) * 100;
     
     document.getElementById('yt-fill').style.width = pct + "%";
-    document.getElementById('time-display').innerText = fmtTime(effectiveElapsed) + " / " + fmtTime(totalTime);
+    
+    // Show Remaining Time
+    let rem = Math.max(0, Math.ceil(totalTime - effectiveElapsed));
+    document.getElementById('time-display').innerText = fmtTime(rem);
     
     if(elapsed >= totalTime) {
       curCount++;
@@ -300,13 +303,13 @@ function stop() {
 function finish() {
   stop();
   document.getElementById('status-badge').innerText = "成形完了"; // Machine term
-  document.getElementById('time-display').innerText = fmtTime(totalTime);
+  document.getElementById('time-display').innerText = fmtTime(0);
   document.getElementById('yt-fill').style.width = "100%";
   if(navigator.vibrate) navigator.vibrate([200,100,200]);
 }
 
 // Initial Disp
-document.getElementById('time-display').innerText = "0:00 / " + fmtTime(10);
+document.getElementById('time-display').innerText = fmtTime(10);
 </script>
 </body>
 </html>
