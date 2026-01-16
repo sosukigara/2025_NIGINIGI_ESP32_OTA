@@ -3,8 +3,8 @@
 #include <WebServer.h>
 #include <time.h>
 
-// Selected UI: M3 Standard
-#include "ui/ui_m3_standard.h"
+// Selected UI: Main
+#include "ui/ui_main.h"
 
 const char* ssid     = "Extender-G-FA88";
 const char* password = "jritucr4nff7u";
@@ -57,7 +57,7 @@ void setup() {
   server.begin();
   
   Serial.println("=================================");
-  Serial.println("ONIGIRI MACHINE (M3 Standard) READY");
+  Serial.println("ONIGIRI MACHINE (Main) READY");
   Serial.print("Access URL: http://");
   Serial.println(WiFi.localIP());
   Serial.println("=================================");
