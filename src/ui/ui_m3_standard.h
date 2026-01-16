@@ -163,7 +163,6 @@ input[type=range] { width: 120px; accent-color: var(--accent-purple); }
 <body>
 
 <div class="header">
-  <div class="header-date">今日</div>
   <h1>おにぎり成形機</h1>
 </div>
 
@@ -176,9 +175,7 @@ input[type=range] { width: 120px; accent-color: var(--accent-purple); }
   
   <!-- Progress Bar -->
   <div class="yt-progress-container">
-    <div class="yt-progress-fill" id="yt-fill">
-      <div class="yt-scrubber"></div>
-    </div>
+    <div class="yt-progress-fill" id="yt-fill"></div>
   </div>
 </div>
 
