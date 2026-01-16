@@ -268,7 +268,7 @@ input:checked + .slider:before { transform: translateX(22px); }
   <!-- 2. Preset -->
   <div class="card card-preset">
     <h3>プリセット</h3>
-    <div class="preset-grid">
+    <div class="preset-grid" style="grid-template-columns: 1fr 1fr 1fr;">
       <div class="preset-btn" onclick="setPreset('soft',this)">やわらか</div>
       <div class="preset-btn active" onclick="setPreset('normal',this)">ふつう</div>
       <div class="preset-btn" onclick="setPreset('kosen',this)">高専生用</div>
