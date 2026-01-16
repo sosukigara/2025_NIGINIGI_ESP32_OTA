@@ -327,7 +327,7 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); backgrou
 
     <!-- Reach Time Setting -->
     <div class="setting-item" style="flex-direction:row; align-items:center; justify-content:space-between;">
-      <span class="s-label">到達時間 (秒)</span>
+      <span class="s-label">握り時間 (秒)</span>
       <input type="number" id="inp-reach" value="0.5" step="0.1" style="width:80px; padding:12px; border-radius:12px; border:1px solid #ddd; text-align:center; font-size:1.1rem; font-weight:700;" onchange="saveReach(this.value)">
     </div>
     

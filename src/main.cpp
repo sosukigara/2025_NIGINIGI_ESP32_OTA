@@ -68,11 +68,8 @@ void handleApiStart() {
   currentCycle = 0;
   stateStartTime = millis();
   
-  // Calculate target angle based on strength
-  // 0% = 270 deg, 100% = 0 deg
-  // angle = 270 - (270 * strength / 100)
-  int angle = 270 - (270 * targetStrength / 100);
-  setAllServos(angle);
+  // Ensure proper start from open position for ramping
+  setAllServos(REF_ANGLE);
   
   server.send(200, "text/plain", "OK");
 }
@@ -166,7 +163,7 @@ void setup() {
   
   Serial.println("=================================");
   Serial.println("ONIGIRI MACHINE (Main) READY");
-  Serial.printf("Hold Time: %.2fs\n", holdTimeSec);
+  Serial.printf("Settings: Hold=%.2fs, Reach=%.2fs\n", holdTimeSec, reachTimeSec);
   Serial.print("Access URL: http://");
   Serial.println("=================================");
 }
@@ -205,7 +202,11 @@ void loop() {
            // Finished reaching
            setAllServos(targetAngle);
            stateStartTime = now;
+           // Finished reaching
+           setAllServos(targetAngle);
+           stateStartTime = now;
            currentState = HOLDING;
+           Serial.println("State: HOLDING");
          } else {
            // Interpolate: Map elapsed time to angle range
            int currentAngle = map(elapsed, 0, duration, REF_ANGLE, targetAngle);
@@ -220,6 +221,7 @@ void loop() {
         setAllServos(REF_ANGLE);
         currentState = RELEASING;
         stateStartTime = now; 
+        Serial.println("State: RELEASING");
       }
       break;
       
@@ -233,7 +235,7 @@ void loop() {
       // Or just simple state transitions?
       
       // Let's make RELEASING just a quick return state.
-      if (now - stateStartTime >= 500) { // 0.5s return time
+      if (now - stateStartTime >= 300) { // 0.3s buffer (Fastest Release)
         currentState = WAIT_CYCLE;
       }
       break;
