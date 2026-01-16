@@ -73,21 +73,21 @@ body {
 }
 .monitor-row { 
   display: flex; 
-  flex-direction: column; /* Stack vertically for centering */
-  align-items: center;    /* Center horizontally */
+  flex-direction: column; 
+  align-items: center;    
   justify-content: center;
-  gap: 12px;              /* Gap between badge and time */
+  gap: 12px;              
   margin-bottom: 30px; 
 }
 .status-badge {
   background: #f2f2f7; color: var(--text-sub);
-  padding: 6px 12px; border-radius: 20px;
-  font-size: 0.9rem; font-weight: 700;
+  padding: 8px 16px; border-radius: 24px; /* Larger badge */
+  font-size: 1rem; font-weight: 700; /* Increased from 0.9rem */
 }
 .running .status-badge { background: #fee2e2; color: var(--yt-red); }
 
 .time-big {
-  font-size: 3.5rem; /* Made bigger since it's centered */
+  font-size: 4rem; /* Even bigger */
   font-weight: 800; 
   font-variant-numeric: tabular-nums; 
   letter-spacing: -2px;
@@ -96,9 +96,9 @@ body {
 
 /* YouTube Style Progress Bar */
 .yt-progress-container {
-  width: 100%; height: 4px; border-radius: 2px;
+  width: 100%; height: 6px; /* Thicker track */
   background: #e5e5ea; position: relative;
-  cursor: default; /* No pointer cursor implies no interaction */
+  cursor: default; 
 }
 .yt-progress-fill {
   position: absolute; left: 0; top: 0; height: 100%;
@@ -116,12 +116,12 @@ body {
 
 
 /* 2. Preset Card (Simplified) */
-.card-preset h3 { margin: 0 0 16px 0; font-size: 1rem; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.05em; }
-.preset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.card-preset h3 { margin: 0 0 16px 0; font-size: 1.1rem; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.05em; }
+.preset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .preset-btn {
   background: var(--bg); border: 2px solid transparent;
-  padding: 12px; border-radius: 12px;
-  font-size: 0.95rem; font-weight: 700; color: var(--text-main);
+  padding: 16px; border-radius: 16px; /* Larger padding */
+  font-size: 1.1rem; font-weight: 700; color: var(--text-main); /* Larger text */
   text-align: center; cursor: pointer; transition: 0.2s;
 }
 .preset-btn.active {
@@ -130,26 +130,26 @@ body {
 }
 
 /* 3. Settings Card (List Style) */
-.card-settings { padding: 20px; } /* Added padding for stacked layout */
+.card-settings { padding: 24px; } /* More breathing room */
 .setting-item {
-  padding: 12px 0;
-  display: flex; flex-direction: column; /* Stacked for better control */
+  padding: 16px 0; /* More vertical space */
+  display: flex; flex-direction: column; 
   border-bottom: 1px solid #f2f2f7;
 }
 .setting-item:last-child { border-bottom: none; }
 
 .s-header {
   display: flex; justify-content: space-between; align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
-.s-label { font-size: 1rem; font-weight: 700; color: var(--text-main); }
-.s-val { font-size: 1rem; font-weight: 700; color: var(--accent-purple); font-variant-numeric: tabular-nums; }
+.s-label { font-size: 1.1rem; font-weight: 700; color: var(--text-main); } /* Larger Labels */
+.s-val { font-size: 1.2rem; font-weight: 700; color: var(--accent-purple); font-variant-numeric: tabular-nums; } /* Larger Values */
 
 /* Custom Large Range Slider */
 input[type=range] {
   -webkit-appearance: none;
   width: 100%;
-  height: 44px; /* Large touch target */
+  height: 48px; /* Taller touch target */
   background: transparent;
   cursor: pointer;
   margin: 0;
@@ -158,20 +158,20 @@ input[type=range]:focus { outline: none; }
 
 /* Track */
 input[type=range]::-webkit-slider-runnable-track {
-  width: 100%; height: 12px;
+  width: 100%; height: 16px; /* Thicker track */
   background: #e5e5ea;
-  border-radius: 6px;
+  border-radius: 8px;
   border: none;
 }
 /* Thumb */
 input[type=range]::-webkit-slider-thumb {
   -webkit-appearance: none;
-  height: 32px; width: 32px;
+  height: 36px; width: 36px; /* Larger thumb */
   border-radius: 50%;
   background: #ffffff;
   border: 0.5px solid rgba(0,0,0,0.04);
   box-shadow: 0 4px 10px rgba(0,0,0,0.15);
-  margin-top: -10px; /* Center on track: (12 - 32)/2 */
+  margin-top: -10px; /* Center on track: (16 - 36)/2 */
   transition: transform 0.1s;
 }
 input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); background: #f2f2f7; }
@@ -179,10 +179,11 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); backgrou
 /* Grip Count Buttons */
 .chk-group { display: flex; gap: 12px; justify-content: flex-end; }
 .chk-btn {
-  width: 48px; height: 48px; border-radius: 50%;
+  width: 56px; height: 56px; /* Larger buttons */
+  border-radius: 50%;
   background: #f2f2f7; color: var(--text-sub);
   display: flex; align-items: center; justify-content: center;
-  font-size: 1.1rem; font-weight: 700;
+  font-size: 1.3rem; font-weight: 700; /* Larger numbers */
   cursor: pointer; transition: 0.2s;
 }
 .chk-btn.active {
@@ -199,9 +200,9 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); backgrou
 }
 
 .action-btn {
-  flex: 1; height: 64px;
-  border-radius: 32px; border: none;
-  font-size: 1.1rem; font-weight: 800;
+  flex: 1; height: 72px; /* Taller buttons */
+  border-radius: 36px; border: none;
+  font-size: 1.3rem; font-weight: 800; /* Larger text */
   display: flex; align-items: center; justify-content: center; gap: 8px;
   cursor: pointer; box-shadow: inset 0 1px 1px rgba(255,255,255,0.4);
   transition: transform 0.1s;
