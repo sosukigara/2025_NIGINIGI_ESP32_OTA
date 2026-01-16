@@ -216,69 +216,100 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); backgrou
 </style>
 </head>
 <body>
+</style>
+</head>
+<body>
 
-<div class="header">
-  <h1>にぎにぎ</h1>
-</div>
-
-<!-- 1. Monitor (YouTube Style) -->
-<div class="card card-monitor">
-  <div class="monitor-row">
-    <div class="status-badge" id="status-badge">待機中</div>
-    <div class="time-big" id="time-display">0:00</div>
+<!-- VIEW: MAIN -->
+<div id="view-main">
+  <div class="header">
+    <h1>にぎにぎ</h1>
   </div>
-  
-  <!-- Progress Bar -->
-  <div class="yt-progress-container">
-    <div class="yt-progress-fill" id="yt-fill"></div>
-  </div>
-</div>
 
-<!-- 2. Preset -->
-<div class="card card-preset">
-  <h3>プリセット</h3>
-  <div class="preset-grid">
-    <div class="preset-btn" onclick="setPreset('soft',this)">やわらか</div>
-    <div class="preset-btn active" onclick="setPreset('normal',this)">ふつう</div>
-    <div class="preset-btn" onclick="setPreset('hard',this)">かため</div>
-    <div class="preset-btn" onclick="setPreset('kosen',this)">高専生用</div>
-  </div>
-</div>
-
-<!-- 3. Settings -->
-<div class="card card-settings">
-  <div class="setting-item">
-    <div class="s-header">
-      <span class="s-label">握りの強さ</span>
-      <span class="s-val" id="str-disp">50%</span>
+  <!-- 1. Monitor (YouTube Style) -->
+  <div class="card card-monitor">
+    <div class="monitor-row">
+      <div class="status-badge" id="status-badge">待機中</div>
+      <div class="time-big" id="time-display">0:00</div>
     </div>
-    <input type="range" id="inp-str" min="0" max="100" value="50" oninput="updVal('str-disp', this.value, '%')">
-  </div>
-  
-  <div class="setting-item" style="flex-direction:row; align-items:center; justify-content:space-between; padding:16px 0;">
-    <span class="s-label">握り回数</span>
-    <div class="chk-group">
-      <div class="chk-btn" onclick="setCount(1,this)">1</div>
-      <div class="chk-btn" onclick="setCount(2,this)">2</div>
-      <div class="chk-btn active" onclick="setCount(3,this)">3</div>
-      <div class="chk-btn" onclick="setCount(4,this)">4</div>
+    
+    <!-- Progress Bar -->
+    <div class="yt-progress-container">
+      <div class="yt-progress-fill" id="yt-fill"></div>
     </div>
   </div>
+
+  <!-- 2. Preset -->
+  <div class="card card-preset">
+    <h3>プリセット</h3>
+    <div class="preset-grid">
+      <div class="preset-btn" onclick="setPreset('soft',this)">やわらか</div>
+      <div class="preset-btn active" onclick="setPreset('normal',this)">ふつう</div>
+      <div class="preset-btn" onclick="setPreset('hard',this)">かため</div>
+      <div class="preset-btn" onclick="setPreset('kosen',this)">高専生用</div>
+    </div>
+  </div>
+
+  <!-- 3. Settings -->
+  <div class="card card-settings">
+    <div class="setting-item">
+      <div class="s-header">
+        <span class="s-label">握りの強さ</span>
+        <span class="s-val" id="str-disp">50%</span>
+      </div>
+      <input type="range" id="inp-str" min="0" max="100" value="50" oninput="updVal('str-disp', this.value, '%')">
+    </div>
+    
+    <div class="setting-item" style="flex-direction:row; align-items:center; justify-content:space-between; padding:16px 0;">
+      <span class="s-label">握り回数</span>
+      <div class="chk-group">
+        <div class="chk-btn" onclick="setCount(1,this)">1</div>
+        <div class="chk-btn" onclick="setCount(2,this)">2</div>
+        <div class="chk-btn active" onclick="setCount(3,this)">3</div>
+        <div class="chk-btn" onclick="setCount(4,this)">4</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Navigation to Advanced Settings -->
+  <div class="card" onclick="showSettings()" style="padding:16px 20px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; margin-bottom:120px;">
+    <span style="font-weight:700; font-size:1rem; color:var(--text-main);">詳細設定</span>
+    <span class="material-icons-round" style="color:var(--text-sub);">chevron_right</span>
+  </div>
+
+  <!-- Bottom Floating Actions -->
+  <div class="bottom-bar">
+    <button class="action-btn btn-start" onclick="start()">
+      <span class="material-icons-round">play_arrow</span>
+      成形開始
+    </button>
+    
+    <button class="action-btn btn-stop" onclick="stop()">
+      <span class="material-icons-round">stop_circle</span>
+      停止
+    </button>
+  </div>
 </div>
 
-<!-- Advanced Settings (Collapsible) -->
-<details class="card card-settings" style="margin-top:20px; background:#f9f9f9;">
-  <summary style="font-weight:700; color:var(--text-sub); cursor:pointer; list-style:none; padding:10px;">詳細設定</summary>
-  <div class="setting-item">
-    <span class="s-label">最終更新日時</span>
-    <span class="s-val" style="font-size:0.8rem; color:#aaa;">{{BUILD_TIME}}</span>
+<!-- VIEW: SETTINGS -->
+<div id="view-settings" style="display:none; padding-bottom:40px;">
+  <div class="header" style="display:flex; align-items:center; gap:10px;">
+    <button onclick="showMain()" style="background:none; border:none; color:var(--text-main); cursor:pointer; padding:0;">
+      <span class="material-icons-round" style="font-size:2rem;">arrow_back</span>
+    </button>
+    <h1>詳細設定</h1>
   </div>
-   <div class="setting-item">
-    <span class="s-label">IP Address</span>
-    <span class="s-val" style="font-size:0.8rem; color:#aaa;" id="ip-disp">Detecting...</span>
+  
+  <div class="card card-settings">
+    <div class="setting-item">
+      <span class="s-label">システム情報</span>
+      <div style="margin-top:8px; font-size:0.9rem; color:var(--text-sub);">
+        <div>Build: <span style="font-family:monospace;">{{BUILD_TIME}}</span></div>
+        <div>IP: <span style="font-family:monospace;" id="ip-disp">...</span></div>
+      </div>
+    </div>
   </div>
-</details>
-<script>document.getElementById('ip-disp').innerText = window.location.hostname;</script>
+</div>
 
 <!-- Completion Overlay -->
 <div id="comp-overlay" style="position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:200; display:none; flex-direction:column; align-items:center; justify-content:center; color:white; opacity:0; transition:opacity 0.3s;">
@@ -288,37 +319,31 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); backgrou
   <button onclick="closeOverlay()" style="margin-top:30px; padding:12px 30px; border-radius:30px; background:white; color:black; font-weight:800; border:none; font-size:1.1rem;">閉じる</button>
 </div>
 
-<!-- Bottom Floating Actions -->
-<div class="bottom-bar">
-  <button class="action-btn btn-start" onclick="start()">
-    <span class="material-icons-round">play_arrow</span>
-    成形開始
-  </button>
-  
-  <button class="action-btn btn-stop" onclick="stop()">
-    <span class="material-icons-round">stop_circle</span>
-    停止
-  </button>
-</div>
-
 <script>
+document.getElementById('ip-disp').innerText = window.location.hostname;
+
+function showSettings() {
+  document.getElementById('view-main').style.display = 'none';
+  document.getElementById('view-settings').style.display = 'block';
+  window.scrollTo(0,0);
+}
+
+function showMain() {
+  document.getElementById('view-settings').style.display = 'none';
+  document.getElementById('view-main').style.display = 'block';
+}
+
 let isRunning = false;
 let loopT = null;
 let startTime = 0;
-let totalTime = 4.5; // Calculated Total (e.g. 3 * 1.5)
-let tgtCount = 3;    // Default 3
+let totalTime = 4.5;
+let tgtCount = 3;
 let curCount = 0;
-// Note: We track global elapsed time for the specific progress bar logic requested
 
 function updVal(id, v, unit) { document.getElementById(id).innerText = v + unit; }
 
-function calcTotal() {
-  return Math.ceil(tgtCount * 1.5);
-}
-
-function updTimeDisp() {
-  document.getElementById('time-display').innerText = fmtTime(calcTotal());
-}
+function calcTotal() { return Math.ceil(tgtCount * 1.5); }
+function updTimeDisp() { document.getElementById('time-display').innerText = fmtTime(calcTotal()); }
 
 function setCount(n, el) {
   tgtCount = n;
@@ -327,7 +352,6 @@ function setCount(n, el) {
   if(!isRunning) updTimeDisp();
 }
 
-// Format seconds to M:SS (like YouTube)
 function fmtTime(s) {
   let min = Math.floor(s / 60);
   let sec = Math.floor(s % 60);
@@ -338,16 +362,11 @@ function setPreset(mode, el) {
   document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
   el.classList.add('active');
   const s = document.getElementById('inp-str');
-  
-  // All presets default to 3 grips, only Strength varies
   if(mode==='soft') { s.value=30; }
   if(mode==='normal') { s.value=50; }
   if(mode==='hard') { s.value=80; }
   if(mode==='kosen') { s.value=100; }
-  
-  // Update UI for preset default (3)
-  setCount(3, document.querySelectorAll('.chk-btn')[2]); // Select '3'
-  
+  setCount(3, document.querySelectorAll('.chk-btn')[2]); 
   updVal('str-disp', s.value, '%');
 }
 
@@ -355,32 +374,19 @@ function start() {
   if(navigator.vibrate) navigator.vibrate(50);
   isRunning = true;
   document.body.classList.add('running');
-  document.getElementById('status-badge').innerText = "成形中"; // Machine term
+  document.getElementById('status-badge').innerText = "成形中";
   fetch('/api/start');
-  
-  // tgtCount is set by setCount already
   curCount = 0;
-  totalTime = tgtCount * 1.5; // EXACT TOTAL TIME
+  totalTime = tgtCount * 1.5;
   startTime = Date.now();
-  
-  // Initialize progress
   updTimeDisp();
-  
   loopT = setInterval(() => {
     let elapsed = (Date.now() - startTime) / 1000;
-    
-    // Progress Bar: Simple 0 to 100% over Total Time
     let pct = Math.min((elapsed / totalTime) * 100, 100);
     document.getElementById('yt-fill').style.width = pct + "%";
-    
-    // Remaining Time Display
     let rem = Math.max(0, Math.ceil(totalTime - elapsed));
     document.getElementById('time-display').innerText = fmtTime(rem);
-    
-    // Check for completion based on Total Time
-    if(elapsed >= totalTime) {
-      finish();
-    }
+    if(elapsed >= totalTime) finish();
   }, 50);
 }
 
@@ -395,16 +401,12 @@ function stop() {
 
 function finish() {
   stop();
-  document.getElementById('status-badge').innerText = "成形完了"; // Machine term
+  document.getElementById('status-badge').innerText = "成形完了";
   document.getElementById('time-display').innerText = fmtTime(0);
   document.getElementById('yt-fill').style.width = "100%";
-  
-  // Show Completion Overlay
   let ov = document.getElementById('comp-overlay');
   ov.style.display = 'flex';
-  // Fade in
   setTimeout(()=> ov.style.opacity = 1, 10);
-  
   if(navigator.vibrate) navigator.vibrate([200,100,200,100,500]);
 }
 
@@ -413,10 +415,9 @@ function closeOverlay() {
   ov.style.opacity = 0;
   setTimeout(()=> ov.style.display = 'none', 300);
   document.getElementById('yt-fill').style.width = "0%";
-  updTimeDisp(); // Reset time display
+  updTimeDisp();
 }
 
-// Initial Disp
 updTimeDisp();
 </script>
 </body>
