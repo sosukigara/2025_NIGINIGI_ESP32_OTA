@@ -40,7 +40,7 @@ body {
   background: var(--bg);
   color: var(--text-main);
   font-family: 'Inter', 'Noto Sans JP', sans-serif;
-  margin: 0; padding: 18px; /* Slightly tighter than 20px */
+  margin: 0; padding: 20px; /* Consistent Equal Padding */
   min-height: 100vh;
   box-sizing: border-box;
   -webkit-font-smoothing: antialiased;
@@ -48,7 +48,7 @@ body {
 }
 
 /* Header */
-.header { margin-bottom: 14px; padding-top: 6px; }
+.header { margin-bottom: 20px; padding-top: 0; } /* Equal spacing */
 .header h1 {
   font-size: 1.9rem; font-weight: 800; margin: 0;
   letter-spacing: -0.02em;
@@ -59,8 +59,8 @@ body {
 .card {
   background: var(--card-bg);
   border-radius: var(--radius);
-  padding: 18px; /* Slightly tighter */
-  margin-bottom: 14px; /* Slightly tighter */
+  padding: 20px; 
+  margin-bottom: 20px; /* Equal spacing */
   box-shadow: var(--shadow);
   overflow: hidden;
 }
@@ -213,7 +213,7 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); backgrou
 .btn-start { background: var(--text-main); color: white; }
 .btn-stop { background: var(--danger); color: white; display: none; } /* Red Stop Button */
 .running .btn-start { display: none; }
-.running .btn-stop { display: flex; background: white; }
+.running .btn-stop { display: flex; } /* Keep Red */
 
 </style>
 </head>
