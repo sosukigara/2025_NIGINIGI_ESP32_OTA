@@ -532,23 +532,38 @@ setInterval(() => {
           // Sync logic if needed
       }
       
-      // Update Progress (Approximate based on cycle count for now)
+      // Update Progress (Precise)
       if(isRunning || st === 'PAUSED') {
-         let total = d.total * (d.reach + d.hold + 0.5); // Est cycle time
-         let current = d.cycle * (d.reach + d.hold + 0.5); 
-         // Crude progress, but effective for sync
+         // Cycle Config
+         let t_reach = d.reach;
+         let t_hold = d.hold;
+         let t_rel = 0.3; // Fast release buffer
+         let t_cycle = t_reach + t_hold + t_rel;
+         
+         let total = d.total * t_cycle;
+         let completed = d.cycle * t_cycle;
+         
+         // Intra-cycle progress
+         let intra = 0;
+         let elap_sec = d.elap / 1000.0;
+         
+         if(st === 'SQUEEZING') intra = elap_sec;
+         else if(st === 'HOLDING') intra = t_reach + elap_sec;
+         else if(st === 'RELEASING' || st === 'WAIT_CYCLE') intra = t_reach + t_hold + elap_sec;
+         
+         let current = completed + intra;
+         
+         // Progress & Time
          let pct = Math.min((current / total) * 100, 100);
          document.getElementById('yt-fill').style.width = pct + "%";
          
-         // Remaining time est
-         let elap = current; // approx
          let rem = Math.max(0, Math.ceil(total - current));
          document.getElementById('time-display').innerText = fmtTime(rem);
       } else {
          document.getElementById('yt-fill').style.width = "0%";
       }
     });
-}, 1000);
+}, 500); // Poll faster for smoothness
 
 function stop() {
   if(navigator.vibrate) navigator.vibrate(50);

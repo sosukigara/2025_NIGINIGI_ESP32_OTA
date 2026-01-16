@@ -129,7 +129,8 @@ void handleApiStatus() {
   json += "\"total\":" + String(targetCount) + ",";
   json += "\"hold\":" + String(holdTimeSec) + ",";
   json += "\"reach\":" + String(reachTimeSec) + ",";
-  json += "\"str\":" + String(targetStrength);
+  json += "\"str\":" + String(targetStrength) + ",";
+  json += "\"elap\":" + String(millis() - stateStartTime);
   json += "}";
   server.send(200, "application/json", json);
 }
