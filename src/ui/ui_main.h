@@ -593,7 +593,8 @@ setInterval(() => {
           // Sync logic
       }
     });
-}, 1000);
+    });
+}, 2000); // Polling reduced to 2s to improve stability
 
 function getLastPct(d) {
   // Helper for static display

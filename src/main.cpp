@@ -267,9 +267,6 @@ void loop() {
            // Finished reaching
            setAllServos(targetAngle);
            stateStartTime = now;
-           // Finished reaching
-           setAllServos(targetAngle);
-           stateStartTime = now;
            currentState = HOLDING;
            Serial.println("State: HOLDING");
          } else {
