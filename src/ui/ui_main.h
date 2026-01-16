@@ -40,17 +40,17 @@ body {
   background: var(--bg);
   color: var(--text-main);
   font-family: 'Inter', 'Noto Sans JP', sans-serif;
-  margin: 0; padding: 16px; /* Reduced padding */
+  margin: 0; padding: 18px; /* Slightly tighter than 20px */
   min-height: 100vh;
   box-sizing: border-box;
   -webkit-font-smoothing: antialiased;
-  padding-bottom: 100px; /* Space for bottom bar */
+  padding-bottom: 120px;
 }
 
 /* Header */
-.header { margin-bottom: 12px; padding-top: 4px; } /* Compact Header */
+.header { margin-bottom: 14px; padding-top: 6px; }
 .header h1 {
-  font-size: 1.8rem; font-weight: 800; margin: 0;
+  font-size: 1.9rem; font-weight: 800; margin: 0;
   letter-spacing: -0.02em;
 }
 .header-date { font-size: 0.9rem; color: var(--text-sub); font-weight: 600; margin-top: 4px; }
@@ -59,8 +59,8 @@ body {
 .card {
   background: var(--card-bg);
   border-radius: var(--radius);
-  padding: 16px; /* Reduced card padding */
-  margin-bottom: 12px; /* Reduced margin */
+  padding: 18px; /* Slightly tighter */
+  margin-bottom: 14px; /* Slightly tighter */
   box-shadow: var(--shadow);
   overflow: hidden;
 }
@@ -69,7 +69,7 @@ body {
 .card-monitor {
   display: flex; flex-direction: column;
   position: relative;
-  padding-bottom: 20px; 
+  padding-bottom: 22px; 
 }
 .monitor-row { 
   display: flex; 
@@ -77,18 +77,17 @@ body {
   align-items: center;    
   justify-content: center;
   gap: 8px;              
-  margin-bottom: 16px; /* Compacted */
+  margin-bottom: 18px; /* Pull up */
 }
 .status-badge {
   background: #f2f2f7; color: var(--text-sub);
-  padding: 6px 12px; border-radius: 20px;
+  padding: 6px 14px; border-radius: 24px;
   font-size: 0.9rem; font-weight: 700;
 }
 .running .status-badge { background: #fee2e2; color: var(--yt-red); }
 
 .time-big {
-  /* Dynamic font size to fit screen */
-  font-size: clamp(3rem, 15vw, 4.5rem); 
+  font-size: clamp(3.2rem, 16vw, 4.8rem); 
   font-weight: 800; 
   font-variant-numeric: tabular-nums; 
   letter-spacing: -2px;
@@ -97,13 +96,13 @@ body {
 
 /* YouTube Style Progress Bar */
 .yt-progress-container {
-  width: 100%; height: 6px; /* Thicker track */
+  width: 100%; height: 8px; 
   background: #e5e5ea; position: relative;
   cursor: default; 
 }
 .yt-progress-fill {
   position: absolute; left: 0; top: 0; height: 100%;
-  background: var(--yt-red); border-radius: 2px;
+  background: var(--yt-red); border-radius: 4px;
   width: 0%; transition: width 0.1s linear;
 }
 .yt-scrubber {
@@ -121,7 +120,7 @@ body {
 .preset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .preset-btn {
   background: var(--bg); border: 2px solid transparent;
-  padding: 12px; border-radius: 12px; /* Compact padding */
+  padding: 14px; border-radius: 14px;
   font-size: 1rem; font-weight: 700; color: var(--text-main);
   text-align: center; cursor: pointer; transition: 0.2s;
 }
@@ -131,9 +130,9 @@ body {
 }
 
 /* 3. Settings Card (List Style) */
-.card-settings { padding: 16px; } /* Compact */
+.card-settings { padding: 18px; } 
 .setting-item {
-  padding: 10px 0; /* Compact */
+  padding: 12px 0; 
   display: flex; flex-direction: column; 
   border-bottom: 1px solid #f2f2f7;
 }
@@ -150,7 +149,7 @@ body {
 input[type=range] {
   -webkit-appearance: none;
   width: 100%;
-  height: 40px; /* Included touch target */
+  height: 44px; 
   background: transparent;
   cursor: pointer;
   margin: 0;
@@ -159,20 +158,20 @@ input[type=range]:focus { outline: none; }
 
 /* Track */
 input[type=range]::-webkit-slider-runnable-track {
-  width: 100%; height: 12px; /* Thicker track */
+  width: 100%; height: 14px;
   background: #e5e5ea;
-  border-radius: 6px;
+  border-radius: 7px;
   border: none;
 }
 /* Thumb */
 input[type=range]::-webkit-slider-thumb {
   -webkit-appearance: none;
-  height: 28px; width: 28px; /* Compact thumb */
+  height: 32px; width: 32px;
   border-radius: 50%;
   background: #ffffff;
   border: 0.5px solid rgba(0,0,0,0.04);
   box-shadow: 0 4px 10px rgba(0,0,0,0.15);
-  margin-top: -8px; /* Center */
+  margin-top: -9px; 
   transition: transform 0.1s;
 }
 input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); background: #f2f2f7; }
@@ -180,11 +179,11 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); backgrou
 /* Grip Count Buttons */
 .chk-group { display: flex; gap: 10px; justify-content: flex-end; }
 .chk-btn {
-  width: 44px; height: 44px; /* Compact buttons */
+  width: 48px; height: 48px; 
   border-radius: 50%;
   background: #f2f2f7; color: var(--text-sub);
   display: flex; align-items: center; justify-content: center;
-  font-size: 1.1rem; font-weight: 700;
+  font-size: 1.2rem; font-weight: 700;
   cursor: pointer; transition: 0.2s;
 }
 .chk-btn.active {
@@ -194,16 +193,16 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); backgrou
 
 /* Bottom Action Bar */
 .bottom-bar {
-  position: fixed; bottom: 20px; left: 16px; right: 16px;
+  position: fixed; bottom: 30px; left: 18px; right: 18px;
   z-index: 100;
   display: flex; gap: 12px;
   filter: drop-shadow(0 10px 20px rgba(0,0,0,0.1));
 }
 
 .action-btn {
-  flex: 1; height: 60px; /* slightly smaller but still easy to hit */
-  border-radius: 30px; border: none;
-  font-size: 1.1rem; font-weight: 800;
+  flex: 1; height: 68px; 
+  border-radius: 34px; border: none;
+  font-size: 1.2rem; font-weight: 800;
   display: flex; align-items: center; justify-content: center; gap: 8px;
   cursor: pointer; box-shadow: inset 0 1px 1px rgba(255,255,255,0.4);
   transition: transform 0.1s;
@@ -312,9 +311,9 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); backgrou
     </div>
     
     <!-- Hold Time Setting -->
-    <div class="setting-item" style="flex-direction:row; align-items:center; justify-content:space-between; padding:16px 0;">
-      <span class="s-label">停止時間 (秒)</span>
-      <input type="number" id="inp-hold" value="0.5" step="0.1" style="width:80px; padding:8px; border-radius:8px; border:1px solid #ddd; text-align:center; font-size:1rem;" onchange="saveHold(this.value)">
+    <div class="setting-item" style="flex-direction:row; align-items:center; justify-content:space-between;">
+      <span class="s-label">保持時間 (秒)</span>
+      <input type="number" id="inp-hold" value="0.5" step="0.1" style="width:80px; padding:12px; border-radius:12px; border:1px solid #ddd; text-align:center; font-size:1.1rem; font-weight:700;" onchange="saveHold(this.value)">
     </div>
     
     <!-- Manual Control -->
