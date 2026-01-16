@@ -107,28 +107,36 @@ body.offline::after {
 }
 .running .status-badge { background: #fee2e2; color: var(--yt-red); }
 
+/* Time Display - 初期ロード完了まで隠す */
 .time-big {
   font-size: clamp(3.2rem, 16vw, 4.8rem); 
   font-weight: 800; 
   font-variant-numeric: tabular-nums; 
   letter-spacing: -2px; line-height: 1;
+  opacity: 0; /* 初期状態は非表示 */
+  transition: opacity 0.3s;
 }
+body.ready .time-big { opacity: 1; }
 
-/* Progress Bar - JS制御のためTransitionは不要 */
+/* Progress Bar - 待機中は非表示 */
 .yt-progress-container {
   width: 100%; height: 8px; 
   background: #e5e5ea; position: relative;
   border-radius: 4px; overflow: hidden;
+  opacity: 0; /* 初期・待機中は非表示 */
+  transition: opacity 0.3s;
 }
+.running .yt-progress-container { opacity: 1; } 
+
 .yt-progress-fill {
   position: absolute; left: 0; top: 0; height: 100%;
   background: var(--yt-red); border-radius: 4px;
-  width: 0%;
+  width: 0%; 
 }
 
 /* Preset Buttons */
 .card-preset h3 { margin: 0 0 10px 0; font-size: 1rem; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.05em; }
-.preset-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.preset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .preset-btn {
   background: var(--bg); border: 2px solid transparent;
   padding: 14px; border-radius: 14px;
@@ -250,7 +258,7 @@ input:checked + .slider:before { transform: translateX(22px); }
   <div class="card card-monitor">
     <div class="monitor-row">
       <div class="status-badge" id="status-badge">待機中</div>
-      <div class="time-big" id="time-display">0:00</div>
+      <div class="time-big" id="time-display"></div>
     </div>
     <div class="yt-progress-container">
       <div class="yt-progress-fill" id="yt-fill"></div>
@@ -354,7 +362,8 @@ let lastStatus = "IDLE";
 // Animation Variables
 let isRunning = false;
 let sessionTotalDur = 1.0; 
-let sessionStartTime = 0;  
+let sessionStartTime = 0;
+let lastStartAction = 0; // ★ボタンを押した時刻
 
 document.getElementById('ip-disp').innerText = window.location.hostname;
 
@@ -365,8 +374,13 @@ function fetchSettings() {
       if(d.hold) document.getElementById('inp-hold').value = d.hold;
       if(d.reach) document.getElementById('inp-reach').value = d.reach;
       if(d.pin13 !== undefined) document.getElementById('chk-pin13').checked = (d.pin13 == 1);
+      
       updTimeDisp();
-    }).catch(e => console.log(e));
+      setTimeout(() => document.body.classList.add('ready'), 50);
+    }).catch(e => {
+        updTimeDisp();
+        document.body.classList.add('ready');
+    });
 }
 fetchSettings();
 
@@ -376,7 +390,8 @@ function togglePin13(el) { fetch('/api/pin13?val=' + (el.checked ? 1 : 0)); }
 
 function manualServo(pct) {
   document.getElementById('man-val').innerText = pct + "%";
-  fetch('/api/manual?val=' + pct);
+  const deg = 270 - (pct * 2.7);
+  fetch('/api/manual?val=' + Math.floor(deg));
 }
 
 function updVal(id, v, unit) { document.getElementById(id).innerText = v + unit; }
@@ -387,11 +402,12 @@ function fmtTime(s) {
 }
 
 function updTimeDisp() {
-  if (isRunning) return;
+  if (isRunning) return; 
   const h = parseFloat(document.getElementById('inp-hold').value) || 0.5;
   const r = parseFloat(document.getElementById('inp-reach').value) || 0.5;
   const total = tgtCount * (h + r + 0.3);
   document.getElementById('time-display').innerText = fmtTime(Math.ceil(total));
+  sessionTotalDur = total;
 }
 
 function setCount(n, el) {
@@ -422,8 +438,22 @@ function showMain() {
 
 function start() {
   const s = document.getElementById('inp-str').value;
+  
+  // Update state immediately
   isRunning = true;
   document.body.classList.add('running');
+  document.getElementById('status-badge').innerText = "準備中..."; // 即時表示
+  
+  // ★重要: 開始アクション時刻を記録
+  lastStartAction = Date.now();
+  sessionStartTime = lastStartAction; // ひとまず現在時刻でスタート
+  
+  // 計算して仮セット
+  const h = parseFloat(document.getElementById('inp-hold').value) || 0.5;
+  const r = parseFloat(document.getElementById('inp-reach').value) || 0.5;
+  sessionTotalDur = tgtCount * (h + r + 0.3);
+  if(sessionTotalDur < 1) sessionTotalDur = 1;
+
   fetch(`/api/start?str=${s}&cnt=${tgtCount}`).catch(()=>{});
 }
 function stop() { fetch('/api/stop').catch(()=>{}); }
@@ -468,9 +498,11 @@ function syncStatus() {
       }
 
       if(d.state !== 'IDLE') {
+        // Just discovered we are running
         if (!isRunning) {
           isRunning = true;
           document.body.classList.add('running');
+          sessionStartTime = Date.now() - (d.elap || 0);
         }
 
         let txt = "動作中";
@@ -480,16 +512,25 @@ function syncStatus() {
         if(d.state === 'RELEASING') txt = "解放中";
         document.getElementById('status-badge').innerText = `${txt} (${d.cycle+1}/${d.total})`;
 
+        // Sync duration
         const serverElapsedMs = d.elap || 0;
         sessionTotalDur = d.dur || 1; 
         
+        // Calibration
         const estimatedStart = Date.now() - serverElapsedMs;
         if (Math.abs(estimatedStart - sessionStartTime) > 300) {
            sessionStartTime = estimatedStart;
         }
 
       } else {
+        // ★IDLEのとき
+        // ボタンを押してから2000ms以内なら、サーバーがIDLEでも「動作中」を維持する
         if (isRunning) {
+           if (Date.now() - lastStartAction < 2000) {
+             // サーバーの応答を無視して待つ
+             return; 
+           }
+
           isRunning = false;
           document.body.classList.remove('running');
           document.getElementById('status-badge').innerText = "待機中";
