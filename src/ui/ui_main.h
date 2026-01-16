@@ -224,6 +224,32 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); backgrou
 .running .btn-start { display: none; }
 .running .btn-stop { display: flex; } /* Keep Red */
 
+/* Responsive Compact Mode for Small Screens */
+@media (max-height: 750px) {
+  body { padding: 12px; padding-bottom: 100px; }
+  .header { margin-bottom: 10px; }
+  .header h1 { font-size: 1.6rem; }
+  .btn-icon span { font-size: 24px !important; }
+  
+  .card { padding: 14px; margin-bottom: 10px; }
+  
+  .card-monitor { padding-bottom: 16px; }
+  .monitor-row { gap: 4px; margin-bottom: 12px; }
+  .time-big { font-size: 3.5rem; }
+  .status-badge { font-size: 0.8rem; padding: 4px 10px; }
+  
+  .card-preset h3 { margin-bottom: 8px; font-size: 0.9rem; }
+  .preset-btn { padding: 10px; font-size: 0.95rem; }
+  
+  .card-settings { padding: 14px; }
+  .setting-item { padding: 8px 0; }
+  input[type=range] { height: 36px; }
+  input[type=range]::-webkit-slider-thumb { width: 26px; height: 26px; margin-top: -8px; }
+  
+  .bottom-bar { bottom: 16px; left: 12px; right: 12px; }
+  .action-btn { height: 56px; font-size: 1.1rem; }
+}
+
 </style>
 </head>
 <body>
