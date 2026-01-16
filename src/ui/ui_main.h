@@ -48,11 +48,20 @@ body {
 }
 
 /* Header */
-.header { margin-bottom: 20px; padding-top: 0; } /* Equal spacing */
+.header { 
+  margin-bottom: 20px; padding-top: 0; 
+  display: flex; justify-content: space-between; align-items: center;
+} 
 .header h1 {
   font-size: 1.9rem; font-weight: 800; margin: 0;
   letter-spacing: -0.02em;
 }
+.btn-icon {
+  background: none; border: none; padding: 8px; margin-right: -8px;
+  color: var(--text-main); cursor: pointer; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+}
+.btn-icon:active { background: rgba(0,0,0,0.05); }
 .header-date { font-size: 0.9rem; color: var(--text-sub); font-weight: 600; margin-top: 4px; }
 
 /* Cards Common */
@@ -226,6 +235,9 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); backgrou
 <div id="view-main">
   <div class="header">
     <h1>にぎにぎ</h1>
+    <button class="btn-icon" onclick="showSettings()">
+      <span class="material-icons-round" style="font-size: 28px;">settings</span>
+    </button>
   </div>
 
   <!-- 1. Monitor (YouTube Style) -->
@@ -273,11 +285,7 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); backgrou
     </div>
   </div>
 
-  <!-- Navigation to Advanced Settings -->
-  <div class="card" onclick="showSettings()" style="padding:16px 20px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; margin-bottom:120px;">
-    <span style="font-weight:700; font-size:1rem; color:var(--text-main);">詳細設定</span>
-    <span class="material-icons-round" style="color:var(--text-sub);">chevron_right</span>
-  </div>
+  <!-- Navigation Removed (Moved to Header) -->
 
   <!-- Bottom Floating Actions -->
   <div class="bottom-bar">
