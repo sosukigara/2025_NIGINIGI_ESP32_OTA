@@ -15,6 +15,20 @@ const char* html_standard = R"rawliteral(
 
 <style>
 
+:root {
+  --bg: #f2f2f7;
+  --card-bg: #ffffff;
+  --text-main: #1c1c1e;
+  --text-sub: #8e8e93;
+  --accent-purple: #5e5ce6;
+  --accent-blue: #007aff;
+  --danger: #ff3b30;
+  --yt-red: #ff0000;
+  
+  --shadow: 0 4px 12px rgba(0,0,0,0.03);
+  --radius: 16px;
+}
+
 /* Global Reset for Mobile App Feel */
 * {
   -webkit-tap-highlight-color: transparent;
