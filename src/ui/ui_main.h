@@ -425,8 +425,8 @@ input:checked + .slider:before { transform: translateX(22px); }
 <div class="completion-modal" id="completion-modal">
   <div class="completion-content">
     <div class="completion-emoji">🍙</div>
-    <div class="completion-title">完成しました！</div>
-    <div class="completion-subtitle" id="completion-stats"></div>
+    <div class="completion-title">完成！</div>
+    <div class="completion-subtitle" id="completion-stats">～おにぎり詳細～</div>
     <button class="completion-btn" onclick="closeCompletionModal()">閉じる</button>
   </div>
 </div>
@@ -629,7 +629,7 @@ setInterval(syncStatus, 1000);
 function showCompletionModal(count) {
   const modal = document.getElementById('completion-modal');
   const stats = document.getElementById('completion-stats');
-  stats.innerText = `${count}個のおにぎりが完成しました！`;
+  stats.innerText = '～おにぎり詳細～';
   modal.classList.add('show');
 }
 
