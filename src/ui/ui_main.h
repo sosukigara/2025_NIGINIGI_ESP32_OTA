@@ -52,7 +52,7 @@ body.offline::after {
   content: "再接続中...";
   position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
   background: rgba(0,0,0,0.8); color: white; padding: 12px 24px;
-  border-radius: 30px; font-weight: bold; pointer-events: none;
+  border-radius: 30px; font-weight: bold; pointer-events: none; z-index: 2000;
 }
 
 /* Header */
@@ -107,23 +107,23 @@ body.offline::after {
 }
 .running .status-badge { background: #fee2e2; color: var(--yt-red); }
 
-/* Time Display - 初期ロード完了まで隠す */
+/* Time Display */
 .time-big {
   font-size: clamp(3.2rem, 16vw, 4.8rem); 
   font-weight: 800; 
   font-variant-numeric: tabular-nums; 
   letter-spacing: -2px; line-height: 1;
-  opacity: 0; /* 初期状態は非表示 */
+  opacity: 0; 
   transition: opacity 0.3s;
 }
 body.ready .time-big { opacity: 1; }
 
-/* Progress Bar - 待機中は非表示 */
+/* Progress Bar */
 .yt-progress-container {
   width: 100%; height: 8px; 
   background: #e5e5ea; position: relative;
   border-radius: 4px; overflow: hidden;
-  opacity: 0; /* 初期・待機中は非表示 */
+  opacity: 0; 
   transition: opacity 0.3s;
 }
 .running .yt-progress-container { opacity: 1; } 
@@ -136,12 +136,13 @@ body.ready .time-big { opacity: 1; }
 
 /* Preset Buttons */
 .card-preset h3 { margin: 0 0 10px 0; font-size: 1rem; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.05em; }
-.preset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.preset-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
 .preset-btn {
   background: var(--bg); border: 2px solid transparent;
-  padding: 14px; border-radius: 14px;
-  font-size: 1rem; font-weight: 700; color: var(--text-main);
+  padding: 14px 4px; border-radius: 14px; /* padding調整 */
+  font-size: 0.95rem; font-weight: 700; color: var(--text-main);
   text-align: center; cursor: pointer; transition: 0.2s;
+  white-space: nowrap; /* 折り返し防止 */
 }
 .preset-btn:active { transform: scale(0.98); }
 .preset-btn.active {
@@ -170,8 +171,14 @@ input[type=range] {
 }
 input[type=range]:focus { outline: none; }
 input[type=range]::-webkit-slider-runnable-track {
-  width: 100%; height: 14px; background: #e5e5ea; border-radius: 7px;
+  width: 100%; height: 14px; 
+  background: #e5e5ea; 
+  border-radius: 7px;
 }
+#inp-str::-webkit-slider-runnable-track {
+  background: linear-gradient(90deg, #e5e5ea 0%, #a0a0ff 50%, #5e5ce6 100%);
+}
+
 input[type=range]::-webkit-slider-thumb {
   -webkit-appearance: none; height: 32px; width: 32px;
   border-radius: 50%; background: #ffffff;
@@ -231,7 +238,9 @@ input:checked + .slider:before { transform: translateX(22px); }
 /* Completion Modal */
 .completion-modal {
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.85);
+  background: rgba(0,0,0,0.7); /* 少し薄暗く */
+  backdrop-filter: blur(4px);   /* 背景ぼかしでリッチに */
+  -webkit-backdrop-filter: blur(4px);
   display: none; align-items: center; justify-content: center;
   z-index: 1000;
   animation: fadeIn 0.3s;
@@ -240,60 +249,63 @@ input:checked + .slider:before { transform: translateX(22px); }
 
 .completion-content {
   background: var(--card-bg);
-  border-radius: 24px;
-  padding: 40px 30px;
+  border-radius: 28px;
+  padding: 32px 28px; /* パディング調整 */
   text-align: center;
-  max-width: 90%;
-  animation: scaleIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  max-width: 85%; width: 340px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+  animation: scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .completion-title {
-  font-size: 1.8rem;
+  font-size: 1.6rem; /* 少し控えめに */
   font-weight: 800;
   color: var(--text-main);
-  margin-bottom: 20px;
+  margin-bottom: 24px; /* 間隔を広げる */
 }
 
 .completion-details {
   text-align: left;
   background: var(--bg);
-  padding: 20px;
-  border-radius: 12px;
-  margin-bottom: 20px;
+  padding: 16px 20px;
+  border-radius: 16px;
+  margin-bottom: 24px;
 }
 
 .detail-row {
   display: flex;
   justify-content: space-between;
-  padding: 8px 0;
-  border-bottom: 1px solid #e5e5ea;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
 }
 .detail-row:last-child { border-bottom: none; }
 
 .detail-label {
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   color: var(--text-sub);
   font-weight: 600;
 }
 
 .detail-value {
-  font-size: 0.95rem;
+  font-size: 1.0rem;
   color: var(--text-main);
   font-weight: 700;
 }
 
 .completion-btn {
-  background: var(--accent-blue);
+  background: var(--text-main); /* 黒ボタンで引き締める */
   color: white;
   border: none;
-  padding: 14px 32px;
-  border-radius: 24px;
-  font-size: 1.1rem;
+  padding: 16px 32px;
+  border-radius: 30px;
+  font-size: 1.0rem;
   font-weight: 700;
   cursor: pointer;
   transition: transform 0.2s;
+  width: 100%;
 }
-.completion-btn:active { transform: scale(0.95); }
+.completion-btn:active { transform: scale(0.96); opacity: 0.9; }
 
 @keyframes fadeIn {
   from { opacity: 0; }
@@ -301,7 +313,7 @@ input:checked + .slider:before { transform: translateX(22px); }
 }
 
 @keyframes scaleIn {
-  from { transform: scale(0.8); opacity: 0; }
+  from { transform: scale(0.9); opacity: 1; }
   to { transform: scale(1); opacity: 1; }
 }
 
@@ -335,7 +347,7 @@ input:checked + .slider:before { transform: translateX(22px); }
   <div class="card card-monitor">
     <div class="monitor-row">
       <div class="status-badge" id="status-badge">待機中</div>
-      <div class="time-big" id="time-display"></div>
+      <div class="time-big" id="time-display">--:--</div>
     </div>
     <div class="yt-progress-container">
       <div class="yt-progress-fill" id="yt-fill"></div>
@@ -446,11 +458,11 @@ input:checked + .slider:before { transform: translateX(22px); }
         <span class="detail-value" id="detail-strength">-</span>
       </div>
       <div class="detail-row">
-        <span class="detail-label">握り回数</span>
+        <span class="detail-label">回数</span>
         <span class="detail-value" id="detail-count">-</span>
       </div>
     </div>
-    <button class="completion-btn" onclick="closeCompletionModal()">閉じる</button>
+    <button class="completion-btn" onclick="closeCompletionModal()">OK</button>
   </div>
 </div>
 
@@ -460,9 +472,15 @@ let lastStatus = "IDLE";
 
 // Animation Variables
 let isRunning = false;
+let isManualStop = false; 
 let sessionTotalDur = 1.0; 
 let sessionStartTime = 0;
-let lastStartAction = 0; // ★ボタンを押した時刻
+let lastStartAction = 0; 
+
+// 完了画面用
+let runPreset = "";
+let runStrength = 0;
+let runCount = 0;
 
 document.getElementById('ip-disp').innerText = window.location.hostname;
 
@@ -489,7 +507,6 @@ function togglePin13(el) { fetch('/api/pin13?val=' + (el.checked ? 1 : 0)); }
 
 function manualServo(pct) {
   document.getElementById('man-val').innerText = pct + "%";
-  // 0% = 開(270度), 100% = 閉(0度)
   fetch('/api/manual?val=' + pct);
 }
 
@@ -538,16 +555,19 @@ function showMain() {
 function start() {
   const s = document.getElementById('inp-str').value;
   
-  // Update state immediately
+  isManualStop = false;
   isRunning = true;
   document.body.classList.add('running');
-  document.getElementById('status-badge').innerText = "準備中..."; // 即時表示
+  document.getElementById('status-badge').innerText = "準備中..."; 
   
-  // ★重要: 開始アクション時刻を記録
   lastStartAction = Date.now();
-  sessionStartTime = lastStartAction; // ひとまず現在時刻でスタート
+  sessionStartTime = lastStartAction;
   
-  // 計算して仮セット
+  const activePreset = document.querySelector('.preset-btn.active');
+  runPreset = activePreset ? activePreset.innerText : 'カスタム';
+  runStrength = s;
+  runCount = tgtCount;
+
   const h = parseFloat(document.getElementById('inp-hold').value) || 0.5;
   const r = parseFloat(document.getElementById('inp-reach').value) || 0.5;
   sessionTotalDur = tgtCount * (h + r + 0.3);
@@ -555,7 +575,11 @@ function start() {
 
   fetch(`/api/start?str=${s}&cnt=${tgtCount}`).catch(()=>{});
 }
-function stop() { fetch('/api/stop').catch(()=>{}); }
+
+function stop() { 
+  isManualStop = true;
+  fetch('/api/stop').catch(()=>{}); 
+}
 
 function setOnline(isOnline) {
   if(isOnline) {
@@ -565,7 +589,7 @@ function setOnline(isOnline) {
   }
 }
 
-// --- SMOOTH ANIMATION LOOP (60fps) ---
+// --- SMOOTH ANIMATION LOOP ---
 function animateLoop() {
   if (isRunning && sessionTotalDur > 0) {
     const now = Date.now();
@@ -583,21 +607,14 @@ function animateLoop() {
 }
 requestAnimationFrame(animateLoop);
 
-
 // --- SYNC WITH SERVER ---
 function syncStatus() {
   fetch('/api/status')
     .then(r => r.json())
     .then(d => {
       setOnline(true);
-      lastStatus = d.state;
       
-      if(d.pin13 !== undefined && document.activeElement.id !== 'chk-pin13') {
-        document.getElementById('chk-pin13').checked = (d.pin13 == 1);
-      }
-
       if(d.state !== 'IDLE') {
-        // Just discovered we are running
         if (!isRunning) {
           isRunning = true;
           document.body.classList.add('running');
@@ -611,65 +628,49 @@ function syncStatus() {
         if(d.state === 'RELEASING') txt = "解放中";
         document.getElementById('status-badge').innerText = `${txt} (${d.cycle+1}/${d.total})`;
 
-        // Sync duration
-        const serverElapsedMs = d.elap || 0;
         sessionTotalDur = d.dur || 1; 
-        
-        // Calibration
-        const estimatedStart = Date.now() - serverElapsedMs;
-        if (Math.abs(estimatedStart - sessionStartTime) > 300) {
+        const estimatedStart = Date.now() - (d.elap || 0);
+        if (Math.abs(estimatedStart - sessionStartTime) > 500) {
            sessionStartTime = estimatedStart;
         }
 
       } else {
-        // ★IDLEのとき
-        // ボタンを押してから2000ms以内なら、サーバーがIDLEでも「動作中」を維持する
         if (isRunning) {
-           // 完成時の処理
            if (Date.now() - lastStartAction >= 2000) {
-             showCompletionModal(d.total);
+             finishSession();
            }
-           if (Date.now() - lastStartAction < 2000) {
-             // サーバーの応答を無視して待つ
-             return; 
-           }
-
-          isRunning = false;
-          document.body.classList.remove('running');
-          document.getElementById('status-badge').innerText = "待機中";
-          document.getElementById('yt-fill').style.width = '0%';
-          updTimeDisp(); 
         }
       }
+      lastStatus = d.state;
     })
     .catch(e => {
       setOnline(false);
     });
 }
-
 setInterval(syncStatus, 1000);
 
-function showCompletionModal(count) {
+function finishSession() {
+  isRunning = false;
+  document.body.classList.remove('running');
+  document.getElementById('status-badge').innerText = "待機中";
+  document.getElementById('yt-fill').style.width = '0%';
+  updTimeDisp(); 
+  
+  if (!isManualStop) {
+    showCompletionModal();
+  }
+}
+
+function showCompletionModal() {
   const modal = document.getElementById('completion-modal');
-  
-  // プリセット名を取得
-  const activePreset = document.querySelector('.preset-btn.active');
-  const presetName = activePreset ? activePreset.innerText : 'カスタム';
-  
-  // 強さを取得
-  const strength = document.getElementById('inp-str').value;
-  
-  // 詳細を表示
-  document.getElementById('detail-preset').innerText = presetName;
-  document.getElementById('detail-strength').innerText = strength + '%';
-  document.getElementById('detail-count').innerText = count + '回';
-  
+  document.getElementById('detail-preset').innerText = runPreset;
+  document.getElementById('detail-strength').innerText = runStrength + '%';
+  document.getElementById('detail-count').innerText = runCount + '回';
   modal.classList.add('show');
 }
 
 function closeCompletionModal() {
-  const modal = document.getElementById('completion-modal');
-  modal.classList.remove('show');
+  document.getElementById('completion-modal').classList.remove('show');
 }
 </script>
 </body>
