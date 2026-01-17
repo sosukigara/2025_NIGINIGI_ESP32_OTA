@@ -247,23 +247,39 @@ input:checked + .slider:before { transform: translateX(22px); }
   animation: scaleIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.completion-emoji {
-  font-size: 5rem;
-  margin-bottom: 20px;
-  animation: bounce 1s infinite;
-}
-
 .completion-title {
   font-size: 1.8rem;
   font-weight: 800;
   color: var(--text-main);
-  margin-bottom: 10px;
+  margin-bottom: 20px;
 }
 
-.completion-subtitle {
-  font-size: 1rem;
+.completion-details {
+  text-align: left;
+  background: var(--bg);
+  padding: 20px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #e5e5ea;
+}
+.detail-row:last-child { border-bottom: none; }
+
+.detail-label {
+  font-size: 0.95rem;
   color: var(--text-sub);
-  margin-bottom: 30px;
+  font-weight: 600;
+}
+
+.detail-value {
+  font-size: 0.95rem;
+  color: var(--text-main);
+  font-weight: 700;
 }
 
 .completion-btn {
@@ -287,11 +303,6 @@ input:checked + .slider:before { transform: translateX(22px); }
 @keyframes scaleIn {
   from { transform: scale(0.8); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
-}
-
-@keyframes bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
 }
 
 /* Responsive */
@@ -424,9 +435,21 @@ input:checked + .slider:before { transform: translateX(22px); }
 <!-- Completion Modal -->
 <div class="completion-modal" id="completion-modal">
   <div class="completion-content">
-    <div class="completion-emoji">🍙</div>
     <div class="completion-title">完成！</div>
-    <div class="completion-subtitle" id="completion-stats">～おにぎり詳細～</div>
+    <div class="completion-details">
+      <div class="detail-row">
+        <span class="detail-label">プリセット</span>
+        <span class="detail-value" id="detail-preset">-</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">強さ</span>
+        <span class="detail-value" id="detail-strength">-</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">握り回数</span>
+        <span class="detail-value" id="detail-count">-</span>
+      </div>
+    </div>
     <button class="completion-btn" onclick="closeCompletionModal()">閉じる</button>
   </div>
 </div>
@@ -628,8 +651,19 @@ setInterval(syncStatus, 1000);
 
 function showCompletionModal(count) {
   const modal = document.getElementById('completion-modal');
-  const stats = document.getElementById('completion-stats');
-  stats.innerText = '～おにぎり詳細～';
+  
+  // プリセット名を取得
+  const activePreset = document.querySelector('.preset-btn.active');
+  const presetName = activePreset ? activePreset.innerText : 'カスタム';
+  
+  // 強さを取得
+  const strength = document.getElementById('inp-str').value;
+  
+  // 詳細を表示
+  document.getElementById('detail-preset').innerText = presetName;
+  document.getElementById('detail-strength').innerText = strength + '%';
+  document.getElementById('detail-count').innerText = count + '回';
+  
   modal.classList.add('show');
 }
 
