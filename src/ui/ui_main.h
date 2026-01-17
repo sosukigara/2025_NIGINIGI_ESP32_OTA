@@ -228,6 +228,72 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); backgrou
 input:checked + .slider { background-color: var(--accent-blue); }
 input:checked + .slider:before { transform: translateX(22px); }
 
+/* Completion Modal */
+.completion-modal {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.85);
+  display: none; align-items: center; justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s;
+}
+.completion-modal.show { display: flex; }
+
+.completion-content {
+  background: var(--card-bg);
+  border-radius: 24px;
+  padding: 40px 30px;
+  text-align: center;
+  max-width: 90%;
+  animation: scaleIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.completion-emoji {
+  font-size: 5rem;
+  margin-bottom: 20px;
+  animation: bounce 1s infinite;
+}
+
+.completion-title {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: var(--text-main);
+  margin-bottom: 10px;
+}
+
+.completion-subtitle {
+  font-size: 1rem;
+  color: var(--text-sub);
+  margin-bottom: 30px;
+}
+
+.completion-btn {
+  background: var(--accent-blue);
+  color: white;
+  border: none;
+  padding: 14px 32px;
+  border-radius: 24px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+.completion-btn:active { transform: scale(0.95); }
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.8); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
 /* Responsive */
 @media (max-height: 750px) {
   body { padding: 12px; padding-bottom: 100px; }
@@ -352,6 +418,16 @@ input:checked + .slider:before { transform: translateX(22px); }
       </div>
       <input type="range" min="0" max="100" value="0" oninput="manualServo(this.value)">
     </div>
+  </div>
+</div>
+
+<!-- Completion Modal -->
+<div class="completion-modal" id="completion-modal">
+  <div class="completion-content">
+    <div class="completion-emoji">🍙</div>
+    <div class="completion-title">完成しました！</div>
+    <div class="completion-subtitle" id="completion-stats"></div>
+    <button class="completion-btn" onclick="closeCompletionModal()">閉じる</button>
   </div>
 </div>
 
@@ -526,6 +602,10 @@ function syncStatus() {
         // ★IDLEのとき
         // ボタンを押してから2000ms以内なら、サーバーがIDLEでも「動作中」を維持する
         if (isRunning) {
+           // 完成時の処理
+           if (Date.now() - lastStartAction >= 2000) {
+             showCompletionModal(d.total);
+           }
            if (Date.now() - lastStartAction < 2000) {
              // サーバーの応答を無視して待つ
              return; 
@@ -545,6 +625,18 @@ function syncStatus() {
 }
 
 setInterval(syncStatus, 1000);
+
+function showCompletionModal(count) {
+  const modal = document.getElementById('completion-modal');
+  const stats = document.getElementById('completion-stats');
+  stats.innerText = `${count}個のおにぎりが完成しました！`;
+  modal.classList.add('show');
+}
+
+function closeCompletionModal() {
+  const modal = document.getElementById('completion-modal');
+  modal.classList.remove('show');
+}
 </script>
 </body>
 </html>

@@ -157,9 +157,8 @@ void handleApiManual() {
         if (pct < 0) pct = 0;
         if (pct > 100) pct = 100;
 
-        // 0% = 270度(開), 100% = 0度(閉)
-        // strengthToUs は逆なので、100-pct で反転させる
-        int targetUs = strengthToUs(100 - pct);
+        // strengthToUs: 0% -> 270度(開), 100% -> 0度(閉)
+        int targetUs = strengthToUs(pct);
         
         currentState = IDLE; // 自動モードをキャンセル
         setAllServosUs(targetUs);
