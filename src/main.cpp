@@ -1,14 +1,16 @@
 // 動作確認済みバージョン (Once it works!)
 #include <Arduino.h>
-#include <WiFi.h>
-#include <WebServer.h>
-#include <time.h>
 #include <ESP32Servo.h>
 #include <Preferences.h>
+#include <WebServer.h>
+#include <WiFi.h>
+#include <time.h>
+#include <vector>
+#include <WiFiManager.h>
+#include <ESPmDNS.h>
 
-// UIファイル (前回作成したものをそのまま使用)
 // --- UI Content ---
-const char* html_main = R"rawliteral(
+const char *html_main = R"rawliteral(
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -70,8 +72,11 @@ body.offline::after {
 .header h1 {
   font-size: 1.9rem; font-weight: 800; margin: 0; letter-spacing: -0.02em;
 }
+.header-actions {
+  display: flex; gap: 8px;
+}
 .btn-icon {
-  background: none; border: none; padding: 8px; margin-right: -8px;
+  background: none; border: none; padding: 8px;
   color: var(--text-main); cursor: pointer; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
 }
@@ -207,6 +212,17 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); backgrou
   background: var(--text-main); color: white;
   box-shadow: 0 4px 10px rgba(0,0,0,0.2); transform: scale(1.05);
 }
+
+/* History List */
+.history-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 0; border-bottom: 1px solid #f2f2f7;
+}
+.history-row:last-child { border-bottom: none; }
+.h-info { display: flex; flex-direction: column; gap: 2px; }
+.h-preset { font-weight: 700; font-size: 1rem; color: var(--text-main); }
+.h-detail { font-size: 0.85rem; color: var(--text-sub); }
+.h-time { font-family: monospace; font-size: 0.9rem; color: var(--accent-purple); font-weight: 600; }
 
 /* Bottom Bar */
 .bottom-bar {
@@ -345,9 +361,16 @@ input:checked + .slider:before { transform: translateX(22px); }
       <div class="conn-dot" id="conn-dot"></div>
       <h1>にぎにぎ</h1>
     </div>
-    <button class="btn-icon" onclick="showSettings()">
-      <span class="material-icons-round" style="font-size: 28px;">settings</span>
-    </button>
+    <div class="header-actions">
+        <!-- History Icon -->
+        <button class="btn-icon" onclick="showHistory()">
+          <span class="material-icons-round" style="font-size: 28px;">history</span>
+        </button>
+        <!-- Settings Icon -->
+        <button class="btn-icon" onclick="showSettings()">
+          <span class="material-icons-round" style="font-size: 28px;">settings</span>
+        </button>
+    </div>
   </div>
 
   <!-- 1. Monitor -->
@@ -365,9 +388,9 @@ input:checked + .slider:before { transform: translateX(22px); }
   <div class="card card-preset">
     <h3>プリセット</h3>
     <div class="preset-grid" style="grid-template-columns: 1fr 1fr 1fr;">
-      <div class="preset-btn" onclick="setPreset('soft',this)">やわらか</div>
-      <div class="preset-btn active" onclick="setPreset('normal',this)">ふつう</div>
-      <div class="preset-btn" onclick="setPreset('kosen',this)">高専生用</div>
+      <div class="preset-btn" onclick="setPreset('soft',this)" data-name="やわらか">やわらか</div>
+      <div class="preset-btn active" onclick="setPreset('normal',this)" data-name="ふつう">ふつう</div>
+      <div class="preset-btn" onclick="setPreset('kosen',this)" data-name="高専生用">高専生用</div>
     </div>
   </div>
 
@@ -451,6 +474,19 @@ input:checked + .slider:before { transform: translateX(22px); }
   </div>
 </div>
 
+<!-- VIEW: HISTORY -->
+<div id="view-history" style="display:none; padding-bottom:40px;">
+  <div class="header" style="display:flex; align-items:center; gap:10px;">
+    <button onclick="showMain()" style="background:none; border:none; color:var(--text-main); cursor:pointer; padding:0;">
+       <span class="material-icons-round" style="font-size:2rem;">arrow_back</span>
+    </button>
+    <h1>履歴</h1>
+  </div>
+  <div id="history-list" class="card" style="padding:10px 20px;">
+    <div style="text-align:center; padding:20px; color:#888;">読み込み中...</div>
+  </div>
+</div>
+
 <!-- Completion Modal -->
 <div class="completion-modal" id="completion-modal">
   <div class="completion-content">
@@ -476,6 +512,7 @@ input:checked + .slider:before { transform: translateX(22px); }
 <script>
 let tgtCount = 3;
 let lastStatus = "IDLE";
+let currentPresetName = "ふつう"; // 初期値
 
 // Animation Variables
 let isRunning = false;
@@ -543,6 +580,8 @@ function setCount(n, el) {
 function setPreset(mode, el) {
   document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
   el.classList.add('active');
+  currentPresetName = el.getAttribute('data-name');
+  
   const s = document.getElementById('inp-str');
   if(mode==='soft') { s.value=30; }
   if(mode==='normal') { s.value=50; }
@@ -553,10 +592,47 @@ function setPreset(mode, el) {
 function showSettings() {
   document.getElementById('view-main').style.display = 'none';
   document.getElementById('view-settings').style.display = 'block';
+  document.getElementById('view-history').style.display = 'none';
+}
+function showHistory() {
+  document.getElementById('view-main').style.display = 'none';
+  document.getElementById('view-settings').style.display = 'none';
+  document.getElementById('view-history').style.display = 'block';
+  fetchHistory();
 }
 function showMain() {
   document.getElementById('view-settings').style.display = 'none';
+  document.getElementById('view-history').style.display = 'none';
   document.getElementById('view-main').style.display = 'block';
+}
+
+function fetchHistory() {
+    const list = document.getElementById('history-list');
+    fetch('/api/history')
+        .then(r => r.json())
+        .then(data => {
+            list.innerHTML = "";
+            if(data.length === 0) {
+                list.innerHTML = "<div style='padding:20px; text-align:center; color:#888;'>履歴はありません</div>";
+                return;
+            }
+            // 新しい順に表示
+            data.reverse().forEach(item => {
+                const row = document.createElement('div');
+                row.className = 'history-row';
+                row.innerHTML = `
+                  <div class="h-info">
+                     <span class="h-preset">${item.preset}</span>
+                     <div class="h-detail">強さ:${item.strength}% / ${item.count}回</div>
+                  </div>
+                  <div class="h-time">${item.time}</div>
+                `;
+                list.appendChild(row);
+            });
+        })
+        .catch(e => {
+            list.innerHTML = "<div style='color:red; text-align:center;'>読み込みエラー</div>";
+        });
 }
 
 function start() {
@@ -570,8 +646,7 @@ function start() {
   lastStartAction = Date.now();
   sessionStartTime = lastStartAction;
   
-  const activePreset = document.querySelector('.preset-btn.active');
-  runPreset = activePreset ? activePreset.innerText : 'カスタム';
+  runPreset = currentPresetName;
   runStrength = s;
   runCount = tgtCount;
 
@@ -580,7 +655,8 @@ function start() {
   sessionTotalDur = tgtCount * (h + r + 0.3);
   if(sessionTotalDur < 1) sessionTotalDur = 1;
 
-  fetch(`/api/start?str=${s}&cnt=${tgtCount}`).catch(()=>{});
+  // プリセット名も送信
+  fetch(`/api/start?str=${s}&cnt=${tgtCount}&preset=${encodeURIComponent(runPreset)}`).catch(()=>{});
 }
 
 function stop() { 
@@ -684,10 +760,6 @@ function closeCompletionModal() {
 </html>
 )rawliteral";
 
-// --- 設定値 ---
-const char* ssid     = "Extender-G-FA88";
-const char* password = "jritucr4nff7u";
-
 WebServer server(80);
 Preferences preferences;
 
@@ -696,16 +768,25 @@ const int PIN_SERVO1 = 25;
 const int PIN_SERVO2 = 26;
 const int PIN_SERVO3 = 27;
 
-// --- サーボ設定 (ここを調整) ---
-// 一般的な270度サーボのパルス幅 (500us〜2500us)
-// ※もし動きが逆（閉じるつもりで開く）なら、この数値を入れ替えてください
-const int US_AT_0_DEG   = 500;   // 0度 (閉/強) のときのパルス幅
-const int US_AT_270_DEG = 2500;  // 270度 (開/弱) のときのパルス幅
+// --- サーボ設定 ---
+const int US_AT_0_DEG = 500;    // 0度 (閉/強)
+const int US_AT_270_DEG = 2500; // 270度 (開/弱)
+const unsigned long DETACH_DELAY_MS = 5000;
+
+// --- 履歴構造体 ---
+struct HistoryItem {
+  String timeStr;
+  String preset;
+  int strength;
+  int count;
+};
+std::vector<HistoryItem> historyLog;
+String currentSessionPreset = "Custom";
 
 // 状態管理
 enum State { IDLE, PREPARE_SQUEEZE, SQUEEZING, HOLDING, RELEASING, WAIT_CYCLE };
 State currentState = IDLE;
-State lastState = IDLE; 
+State lastState = IDLE;
 
 unsigned long stateStartTime = 0;
 unsigned long sessionStartTime = 0;
@@ -713,270 +794,349 @@ unsigned long sessionStartTime = 0;
 // パラメータ
 float holdTimeSec = 0.5;
 float reachTimeSec = 0.5;
-int targetStrength = 50; // 0-100%
+int targetStrength = 50; 
 int targetCount = 3;
 int currentCycle = 0;
 int pin13State = 0;
 
-// ヘルパー: 全サーボにパルス幅(us)を指定
 void setAllServosUs(int us) {
-    servo1.writeMicroseconds(us);
-    servo2.writeMicroseconds(us);
-    servo3.writeMicroseconds(us);
+  servo1.writeMicroseconds(us);
+  servo2.writeMicroseconds(us);
+  servo3.writeMicroseconds(us);
 }
 
-// ヘルパー: 角度(0-270)をパルス幅に変換して移動
 void setAllServosAngle(int angle) {
-    // 安全リミット
-    if (angle < 0) angle = 0;
-    if (angle > 270) angle = 270;
-    
-    // 0度=500us, 270度=2500us にマッピング
-    int us = map(angle, 0, 270, US_AT_0_DEG, US_AT_270_DEG);
-    setAllServosUs(us);
+  if (angle < 0) angle = 0;
+  if (angle > 270) angle = 270;
+  int us = map(angle, 0, 270, US_AT_0_DEG, US_AT_270_DEG);
+  setAllServosUs(us);
 }
 
-// ヘルパー: 強さ(0-100%)をパルス幅に変換
-// 0%(弱) = 270度, 100%(強) = 0度
 int strengthToUs(int strength) {
-    if (strength < 0) strength = 0;
-    if (strength > 100) strength = 100;
-    
-    // 強度0 -> 270度(US_AT_270_DEG)
-    // 強度100 -> 0度(US_AT_0_DEG)
-    return map(strength, 0, 100, US_AT_270_DEG, US_AT_0_DEG);
+  if (strength < 0) strength = 0;
+  if (strength > 100) strength = 100;
+  return map(strength, 0, 100, US_AT_270_DEG, US_AT_0_DEG);
+}
+
+void attachAllServos() {
+    if (!servo1.attached()) servo1.attach(PIN_SERVO1, US_AT_0_DEG, US_AT_270_DEG);
+    if (!servo2.attached()) servo2.attach(PIN_SERVO2, US_AT_0_DEG, US_AT_270_DEG);
+    if (!servo3.attached()) servo3.attach(PIN_SERVO3, US_AT_0_DEG, US_AT_270_DEG);
+}
+
+void detachAllServos() {
+    if (servo1.attached()) servo1.detach();
+    if (servo2.attached()) servo2.detach();
+    if (servo3.attached()) servo3.detach();
 }
 
 // API: Start
 void handleApiStart() {
-    if (server.hasArg("str")) targetStrength = server.arg("str").toInt();
-    if (server.hasArg("cnt")) targetCount = server.arg("cnt").toInt();
-    
-    if (targetStrength > 100) targetStrength = 100;
-    if (targetStrength < 0) targetStrength = 0;
+  if (server.hasArg("str")) targetStrength = server.arg("str").toInt();
+  if (server.hasArg("cnt")) targetCount = server.arg("cnt").toInt();
+  if (server.hasArg("preset")) currentSessionPreset = server.arg("preset");
+  else currentSessionPreset = "カスタム";
+  
+  if (targetStrength > 100) targetStrength = 100;
+  if (targetStrength < 0) targetStrength = 0;
 
-    Serial.printf("[API] Start: Str=%d%%, Cnt=%d\n", targetStrength, targetCount);
-    
-    currentCycle = 0;
-    sessionStartTime = millis();
-    currentState = PREPARE_SQUEEZE; 
-    
-    server.send(200, "text/plain", "OK");
+  Serial.printf("[API] Start: Str=%d%%, Cnt=%d, Preset=%s\n", targetStrength, targetCount, currentSessionPreset.c_str());
+  
+  currentCycle = 0;
+  sessionStartTime = millis();
+  currentState = PREPARE_SQUEEZE; 
+  
+  server.send(200, "text/plain", "OK");
 }
 
 void handleApiStop() {
-    Serial.println("[API] Stop");
-    currentState = IDLE;
-    // 停止時はデフォルト位置（270度）へ戻る
-    setAllServosAngle(270);
-    server.send(200, "text/plain", "OK");
+  Serial.println("[API] Stop");
+  currentState = IDLE;
+  attachAllServos();
+  setAllServosAngle(270);
+  server.send(200, "text/plain", "OK");
 }
 
 void handleApiSettings() {
-    if (server.hasArg("hold")) {
-        holdTimeSec = server.arg("hold").toFloat();
-        preferences.putFloat("hold", holdTimeSec);
-    }
-    if (server.hasArg("reach")) {
-        reachTimeSec = server.arg("reach").toFloat();
-        preferences.putFloat("reach", reachTimeSec);
-    }
-    if (server.hasArg("load")) {
-        // 設定読み込み用（処理なし、下のJSONを返すだけ）
-    }
-    
-    String json = "{";
-    json += "\"hold\":" + String(holdTimeSec) + ",";
-    json += "\"reach\":" + String(reachTimeSec) + ",";
-    json += "\"pin13\":" + String(pin13State);
-    json += "}";
-    server.send(200, "application/json", json);
+  if (server.hasArg("hold")) {
+    holdTimeSec = server.arg("hold").toFloat();
+    preferences.putFloat("hold", holdTimeSec);
+  }
+  if (server.hasArg("reach")) {
+    reachTimeSec = server.arg("reach").toFloat();
+    preferences.putFloat("reach", reachTimeSec);
+  }
+  
+  String json = "{";
+  json += "\"hold\":" + String(holdTimeSec) + ",";
+  json += "\"reach\":" + String(reachTimeSec) + ",";
+  json += "\"pin13\":" + String(pin13State);
+  json += "}";
+  server.send(200, "application/json", json);
 }
 
 void handleApiPin13() {
-    if (server.hasArg("val")) {
-        pin13State = server.arg("val").toInt();
-        digitalWrite(13, pin13State ? HIGH : LOW);
-        preferences.putInt("pin13", pin13State);
-    }
-    server.send(200, "text/plain", "OK");
+  if (server.hasArg("val")) {
+    pin13State = server.arg("val").toInt();
+    digitalWrite(13, pin13State ? HIGH : LOW);
+    preferences.putInt("pin13", pin13State);
+  }
+  server.send(200, "text/plain", "OK");
 }
 
 void handleApiStatus() {
-    String s;
-    switch (currentState) {
-        case IDLE: s = "IDLE"; break;
-        case PREPARE_SQUEEZE: s = "PREPARE_SQUEEZE"; break;
-        case SQUEEZING: s = "SQUEEZING"; break;
-        case HOLDING: s = "HOLDING"; break;
-        case RELEASING: s = "RELEASING"; break;
-        case WAIT_CYCLE: s = "WAIT_CYCLE"; break;
-    }
+  String s;
+  switch (currentState) {
+    case IDLE: s = "IDLE"; break;
+    case PREPARE_SQUEEZE: s = "PREPARE_SQUEEZE"; break;
+    case SQUEEZING: s = "SQUEEZING"; break;
+    case HOLDING: s = "HOLDING"; break;
+    case RELEASING: s = "RELEASING"; break;
+    case WAIT_CYCLE: s = "WAIT_CYCLE"; break;
+  }
 
-    float cycleDur = reachTimeSec + holdTimeSec + 0.3; 
-    float totalDur = targetCount * cycleDur;
-    
-    String json = "{";
-    json += "\"state\":\"" + s + "\",";
-    json += "\"cycle\":" + String(currentCycle) + ",";
-    json += "\"total\":" + String(targetCount) + ",";
-    json += "\"elap\":" + String(millis() - sessionStartTime) + ",";
-    json += "\"pin13\":" + String(pin13State) + ",";
-    json += "\"dur\":" + String(totalDur);
-    json += "}";
-    server.send(200, "application/json", json);
+  float cycleDur = reachTimeSec + holdTimeSec + 0.3; 
+  float totalDur = targetCount * cycleDur;
+  
+  String json = "{";
+  json += "\"state\":\"" + s + "\",";
+  json += "\"cycle\":" + String(currentCycle) + ",";
+  json += "\"total\":" + String(targetCount) + ",";
+  json += "\"elap\":" + String(millis() - sessionStartTime) + ",";
+  json += "\"pin13\":" + String(pin13State) + ",";
+  json += "\"dur\":" + String(totalDur);
+  json += "}";
+  server.send(200, "application/json", json);
 }
 
 void handleApiManual() {
-    if (server.hasArg("val")) {
-        int pct = server.arg("val").toInt(); // 0(開) - 100(閉)
-        if (pct < 0) pct = 0;
-        if (pct > 100) pct = 100;
+  if (server.hasArg("val")) {
+    int pct = server.arg("val").toInt();
+    if (pct < 0) pct = 0;
+    if (pct > 100) pct = 100;
 
-        // strengthToUs: 0% -> 270度(開), 100% -> 0度(閉)
-        int targetUs = strengthToUs(pct);
-        
-        currentState = IDLE; // 自動モードをキャンセル
-        setAllServosUs(targetUs);
-        
-        Serial.printf("[API] Manual: %d%% -> %dus\n", pct, targetUs);
+    int targetUs = strengthToUs(pct);
+    
+    currentState = IDLE;
+    attachAllServos();
+    setAllServosUs(targetUs);
+    
+    Serial.printf("[API] Manual: %d%% -> %dus\n", pct, targetUs);
+  }
+  server.send(200, "text/plain", "OK");
+}
+
+void handleApiHistory() {
+    String json = "[";
+    for(size_t i=0; i<historyLog.size(); i++) {
+        if(i > 0) json += ",";
+        json += "{";
+        json += "\"time\":\"" + historyLog[i].timeStr + "\",";
+        json += "\"preset\":\"" + historyLog[i].preset + "\",";
+        json += "\"strength\":" + String(historyLog[i].strength) + ",";
+        json += "\"count\":" + String(historyLog[i].count);
+        json += "}";
     }
-    server.send(200, "text/plain", "OK");
+    json += "]";
+    server.send(200, "application/json", json);
+}
+
+void handleResetWifi() {
+  WiFiManager wm;
+  wm.resetSettings();
+  server.send(200, "text/plain", "WiFi settings reset. Restarting...");
+  delay(1000);
+  ESP.restart();
 }
 
 void handleRoot() {
-    String html = html_main;
-    html.replace("{{BUILD_TIME}}", __DATE__ " " __TIME__);
-    server.send(200, "text/html", html);
+  String html = html_main;
+  html.replace("{{BUILD_TIME}}", __DATE__ " " __TIME__);
+  server.send(200, "text/html", html);
 }
 
 void setup() {
-    Serial.begin(115200);
-    
-    preferences.begin("job", false);
-    holdTimeSec = preferences.getFloat("hold", 0.5);
-    reachTimeSec = preferences.getFloat("reach", 0.5);
-    pin13State = preferences.getInt("pin13", 0);
-    
-    pinMode(13, OUTPUT);
-    digitalWrite(13, pin13State ? HIGH : LOW);
-    
-    ESP32PWM::allocateTimer(0);
-    ESP32PWM::allocateTimer(1);
-    ESP32PWM::allocateTimer(2);
-    ESP32PWM::allocateTimer(3);
-    
-    servo1.setPeriodHertz(50);
-    servo2.setPeriodHertz(50);
-    servo3.setPeriodHertz(50);
-    
-    // パルス幅設定してAttach
-    servo1.attach(PIN_SERVO1, US_AT_0_DEG, US_AT_270_DEG);
-    servo2.attach(PIN_SERVO2, US_AT_0_DEG, US_AT_270_DEG);
-    servo3.attach(PIN_SERVO3, US_AT_0_DEG, US_AT_270_DEG);
-    
-    // ★起動時の初期位置: 270度 (開)
-    setAllServosAngle(270);
-    
-    WiFi.begin(ssid, password);
-    Serial.print("Connecting WiFi");
-    int retry = 0;
-    while (WiFi.status() != WL_CONNECTED && retry < 20) {
-        delay(500);
-        Serial.print(".");
-        retry++;
+  Serial.begin(115200);
+  
+  preferences.begin("job", false);
+  holdTimeSec = preferences.getFloat("hold", 0.5);
+  reachTimeSec = preferences.getFloat("reach", 0.5);
+  pin13State = preferences.getInt("pin13", 0);
+  
+  pinMode(0, INPUT_PULLUP);
+  pinMode(13, OUTPUT);
+  
+  if (digitalRead(0) == LOW) {
+    Serial.println("BOOT button pressed. Waiting 3 seconds to reset WiFi...");
+    unsigned long startPress = millis();
+    bool performReset = false;
+    while (digitalRead(0) == LOW) {
+        digitalWrite(13, (millis() / 100) % 2);
+        if (millis() - startPress > 3000) {
+            performReset = true;
+            break;
+        }
+        delay(10);
     }
-    if (WiFi.status() == WL_CONNECTED) {
-        Serial.println("\nWiFi Connected.");
-        Serial.print("IP: "); Serial.println(WiFi.localIP());
-        configTime(9 * 3600, 0, "pool.ntp.org");
-    } else {
-        Serial.println("\nWiFi Connect Failed. Running offline.");
+    if (performReset) {
+        digitalWrite(13, HIGH);
+        Serial.println("Resetting WiFi Settings...");
+        WiFiManager wm;
+        wm.resetSettings();
+        Serial.println("Done. Restarting...");
+        delay(1000);
+        ESP.restart();
     }
+  }
 
-    server.on("/", handleRoot);
-    server.on("/api/status", handleApiStatus);
-    server.on("/api/start", handleApiStart);
-    server.on("/api/stop", handleApiStop);
-    server.on("/api/settings", handleApiSettings);
-    server.on("/api/pin13", handleApiPin13);
-    server.on("/api/manual", handleApiManual);
-    server.onNotFound([](){ server.send(404, "text/plain", "Not Found"); });
+  digitalWrite(13, pin13State ? HIGH : LOW);
+  
+  ESP32PWM::allocateTimer(0);
+  ESP32PWM::allocateTimer(1);
+  ESP32PWM::allocateTimer(2);
+  ESP32PWM::allocateTimer(3);
+  
+  servo1.setPeriodHertz(50);
+  servo2.setPeriodHertz(50);
+  servo3.setPeriodHertz(50);
+  
+  attachAllServos();
+  setAllServosAngle(270);
+  
+  // --- WiFiManager ---
+  WiFiManager wm;
+  wm.setConfigPortalTimeout(180); 
+  
+  bool res = wm.autoConnect("Onigiri-Setup", "12345678");
+  
+  if (!res) {
+    Serial.println("Failed to connect or timeout occurred");
+    WiFi.mode(WIFI_AP);
+    WiFi.softAP("Onigiri-Offline", "12345678");
+    Serial.print("Offline AP Started. IP: ");
+    Serial.println(WiFi.softAPIP());
+  } else {
+    Serial.println("connected...yeey :)");
+    Serial.print("IP: "); Serial.println(WiFi.localIP());
+    // JST settings
+    configTime(9 * 3600, 0, "pool.ntp.org");
+  }
 
-    server.begin();
-    Serial.println("Ready.");
+  if (MDNS.begin("onigiri")) {
+    Serial.println("MDNS responder started");
+  }
+
+  server.on("/", handleRoot);
+  server.on("/api/status", handleApiStatus);
+  server.on("/api/start", handleApiStart);
+  server.on("/api/stop", handleApiStop);
+  server.on("/api/settings", handleApiSettings);
+  server.on("/api/pin13", handleApiPin13);
+  server.on("/api/manual", handleApiManual);
+  server.on("/api/history", handleApiHistory);
+  server.on("/reset_wifi", handleResetWifi);
+  server.onNotFound([](){ server.send(404, "text/plain", "Not Found"); });
+
+  server.begin();
+  Serial.println("Ready.");
 }
 
 void loop() {
-    server.handleClient();
+  server.handleClient();
+  
+  unsigned long now = millis();
+  
+  if (currentState != lastState) {
+    stateStartTime = now;
+    Serial.printf("State: %d\n", currentState);
     
-    unsigned long now = millis();
-    
-    if (currentState != lastState) {
-        stateStartTime = now;
-        lastState = currentState;
-        Serial.printf("State: %d\n", currentState);
+    if (currentState == PREPARE_SQUEEZE) {
+        attachAllServos();
+        setAllServosAngle(270);
     }
+    lastState = currentState;
+  }
 
-    switch (currentState) {
-        case IDLE:
-            break;
+  switch (currentState) {
+    case IDLE:
+      if (now - stateStartTime > DETACH_DELAY_MS) {
+          if (servo1.attached()) {
+              detachAllServos();
+              Serial.println("Auto Detach (Power Save)");
+          }
+      }
+      break;
 
-        case PREPARE_SQUEEZE:
-            // 握る動作の前に「全開(270度)」にする
-            setAllServosAngle(270);
-            if (now - stateStartTime > 300) { // 物理的な移動待ち
-                currentState = SQUEEZING;
-            }
-            break;
-            
-        case SQUEEZING:
-            {
-                unsigned long duration = reachTimeSec * 1000;
-                unsigned long elapsed = now - stateStartTime;
-                
-                // 開始: 0%(270度), 終了: targetStrength%(0度に近い)
-                int startUs = US_AT_270_DEG;
-                int targetUs = strengthToUs(targetStrength);
+    case PREPARE_SQUEEZE:
+      setAllServosAngle(270);
+      if (now - stateStartTime > 300) {
+          currentState = SQUEEZING;
+      }
+      break;
+      
+    case SQUEEZING:
+      {
+          unsigned long duration = reachTimeSec * 1000;
+          unsigned long elapsed = now - stateStartTime;
+          int startUs = US_AT_270_DEG;
+          int targetUs = strengthToUs(targetStrength);
 
-                if (elapsed >= duration) {
-                    setAllServosUs(targetUs);
-                    currentState = HOLDING;
-                } else {
-                    float progress = (float)elapsed / (float)duration;
-                    // イージング（滑らかに）
-                    // progress = progress * progress * (3 - 2 * progress); 
-                    
-                    int currentUs = startUs + (targetUs - startUs) * progress;
-                    setAllServosUs(currentUs);
-                }
-            }
-            break;
+          if (elapsed >= duration) {
+              setAllServosUs(targetUs);
+              currentState = HOLDING;
+          } else {
+              float progress = (float)elapsed / (float)duration;
+              int currentUs = startUs + (targetUs - startUs) * progress;
+              setAllServosUs(currentUs);
+          }
+      }
+      break;
+      
+    case HOLDING:
+      if (now - stateStartTime >= (holdTimeSec * 1000)) {
+          currentState = RELEASING;
+      }
+      break;
+      
+    case RELEASING:
+      setAllServosAngle(270);
+      if (now - stateStartTime >= 300) {
+          currentState = WAIT_CYCLE;
+      }
+      break;
+      
+    case WAIT_CYCLE:
+      currentCycle++;
+      if (currentCycle < targetCount) {
+          currentState = SQUEEZING; 
+      } else {
+          Serial.println("Finished.");
+          setAllServosAngle(270);
+          currentState = IDLE;
+          
+          // --- 履歴保存 ---
+          struct tm timeinfo;
+          if(!getLocalTime(&timeinfo)){
+            Serial.println("Failed to obtain time");
+          } else {
+            char timeStringBuff[50];
+            strftime(timeStringBuff, sizeof(timeStringBuff), "%Y/%m/%d %H:%M", &timeinfo);
             
-        case HOLDING:
-            if (now - stateStartTime >= (holdTimeSec * 1000)) {
-                currentState = RELEASING;
-            }
-            break;
+            HistoryItem newItem;
+            newItem.timeStr = String(timeStringBuff);
+            newItem.preset = currentSessionPreset;
+            newItem.strength = targetStrength;
+            newItem.count = targetCount;
             
-        case RELEASING:
-            // 素早く全開(270度)に戻す
-            setAllServosAngle(270);
+            historyLog.push_back(newItem);
             
-            if (now - stateStartTime >= 300) {
-                currentState = WAIT_CYCLE;
+            // 最大保存件数 (20件)
+            if(historyLog.size() > 20) {
+                historyLog.erase(historyLog.begin());
             }
-            break;
-            
-        case WAIT_CYCLE:
-            currentCycle++;
-            if (currentCycle < targetCount) {
-                currentState = SQUEEZING; 
-            } else {
-                Serial.println("Finished.");
-                setAllServosAngle(270); // Final return to open
-                currentState = IDLE;
-            }
-            break;
-    }
+          }
+          // ----------------
+      }
+      break;
+  }
 }
