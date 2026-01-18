@@ -226,7 +226,7 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); backgrou
   font-size: 1.2rem; font-weight: 700; cursor: pointer; transition: 0.2s;
 }
 .chk-btn.active {
-  background: var(--text-main); color: white;
+  background: var(--accent-blue); color: white;
   box-shadow: 0 4px 10px rgba(0,0,0,0.2); transform: scale(1.05);
 }
 
@@ -256,7 +256,7 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); backgrou
   transition: transform 0.1s;
 }
 .action-btn:active { transform: scale(0.98); }
-.btn-start { background: var(--text-main); color: white; }
+.btn-start { background: var(--accent-blue); color: white; }
 .btn-stop { background: var(--danger); color: white; display: none; }
 .running .btn-start { display: none; }
 .running .btn-stop { display: flex; }
