@@ -29,8 +29,8 @@ const char *html_main = R"rawliteral(
   --card-bg: #ffffff;
   --text-main: #1c1c1e;
   --text-sub: #8e8e93;
-  --accent-purple: #5e5ce6;
-  --accent-blue: #007aff;
+  --accent-purple: #248a3d;
+  --accent-blue: #34c759;
   --danger: #ff3b30;
   --yt-red: #ff0000;
   --success: #34c759;
