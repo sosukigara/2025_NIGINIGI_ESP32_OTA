@@ -51,14 +51,10 @@ body {
   color: var(--text-main);
   font-family: 'Inter', 'Noto Sans JP', sans-serif;
   margin: 0; 
-  /* Safe Area Support */
-  padding-top: max(20px, env(safe-area-inset-top));
-  padding-bottom: max(120px, env(safe-area-inset-bottom) + 20px);
-  padding-left: max(20px, env(safe-area-inset-left));
-  padding-right: max(20px, env(safe-area-inset-right));
-  
-  min-height: 100vh;
-  transition: opacity 0.3s;
+  padding: 0;
+  height: 100dvh;
+  width: 100vw;
+  overflow: hidden; /* No scroll on body */
 }
 
 /* Connection Lost State */
@@ -97,21 +93,36 @@ body.offline::after {
 }
 .offline .conn-dot { background: var(--danger); }
 
+/* Main View Container */
+#view-main, #view-settings, #view-history {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  padding-top: max(20px, env(safe-area-inset-top));
+  padding-bottom: max(20px, env(safe-area-inset-bottom));
+  padding-left: max(20px, env(safe-area-inset-left));
+  padding-right: max(20px, env(safe-area-inset-right));
+  box-sizing: border-box;
+}
+
 /* Cards */
 .card {
   background: var(--card-bg);
   border-radius: var(--radius);
-  padding: clamp(14px, 3.5vw, 20px); /* Responsive Padding Reduced */
-  margin-bottom: 14px;
+  padding: clamp(12px, 2vh, 20px);
+  margin-bottom: 2vh;
   box-shadow: var(--shadow);
   overflow: hidden;
+  flex-shrink: 1; /* Allow shrinking */
 }
 
 /* Monitor Card */
 .card-monitor {
   display: flex; flex-direction: column;
   position: relative;
-  padding-bottom: 22px; 
+  padding-bottom: 2vh;
+  flex-grow: 2; /* Occupy more space */
+  justify-content: center;
 }
 .monitor-row { 
   display: flex; flex-direction: column; 
@@ -232,12 +243,10 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); backgrou
 
 /* Bottom Bar */
 .bottom-bar {
-  position: fixed; 
-  bottom: max(30px, env(safe-area-inset-bottom) + 10px); /* Safe Area Support */
-  left: max(18px, env(safe-area-inset-left)); 
-  right: max(18px, env(safe-area-inset-right));
-  z-index: 100; display: flex; gap: 12px;
+  margin-top: auto; /* Push to bottom */
+  display: flex; gap: 12px;
   filter: drop-shadow(0 10px 20px rgba(0,0,0,0.1));
+  flex-shrink: 0; /* Keep size */
 }
 .action-btn {
   flex: 1; height: 68px; border-radius: 34px; border: none;
