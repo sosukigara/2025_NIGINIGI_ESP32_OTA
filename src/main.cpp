@@ -1071,12 +1071,7 @@ void loop() {
 
   switch (currentState) {
     case IDLE:
-      if (now - stateStartTime > DETACH_DELAY_MS) {
-          if (servo1.attached()) {
-              detachAllServos();
-              Serial.println("Auto Detach (Power Save)");
-          }
-      }
+      // Auto Detach Removed as per user request
       break;
 
     case PREPARE_SQUEEZE:
