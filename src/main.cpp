@@ -139,7 +139,7 @@ body.offline::after {
 
 /* Time Display */
 .time-big {
-  font-size: clamp(2.5rem, 12vw, 3.5rem); 
+  font-size: clamp(4.0rem, 18vw, 5.5rem); 
   font-weight: 800; 
   font-variant-numeric: tabular-nums; 
   letter-spacing: -2px; line-height: 1;
