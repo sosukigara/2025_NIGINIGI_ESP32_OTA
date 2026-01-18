@@ -929,6 +929,7 @@ void handleApiManual() {
     int targetUs = strengthToUs(pct);
     
     currentState = IDLE;
+    stateStartTime = millis(); // Reset idle timer so it doesn't detach immediately
     attachAllServos();
     setAllServosUs(targetUs);
     
