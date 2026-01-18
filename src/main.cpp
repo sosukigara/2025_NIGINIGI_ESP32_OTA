@@ -205,7 +205,7 @@ input[type=range]::-webkit-slider-runnable-track {
   border-radius: 7px;
 }
 #inp-str::-webkit-slider-runnable-track {
-  background: linear-gradient(90deg, #e5e5ea 0%, #a0a0ff 50%, #5e5ce6 100%);
+  background: linear-gradient(90deg, #e5e5ea 0%, #7ce495 50%, #248a3d 100%);
 }
 
 input[type=range]::-webkit-slider-thumb {
