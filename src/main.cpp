@@ -139,7 +139,7 @@ body.offline::after {
 
 /* Time Display */
 .time-big {
-  font-size: clamp(3.0rem, 15vw, 4.2rem); 
+  font-size: clamp(2.5rem, 12vw, 3.5rem); 
   font-weight: 800; 
   font-variant-numeric: tabular-nums; 
   letter-spacing: -2px; line-height: 1;
@@ -168,7 +168,7 @@ body.ready .time-big { opacity: 1; }
 .preset-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
 .preset-btn {
   background: var(--bg); border: 2px solid transparent;
-  padding: 14px 4px; border-radius: 14px; /* padding調整 */
+  padding: 22px 4px; border-radius: 14px; /* padding increased */
   font-size: 0.95rem; font-weight: 700; color: var(--text-main);
   text-align: center; cursor: pointer; transition: 0.2s;
   white-space: nowrap; /* 折り返し防止 */

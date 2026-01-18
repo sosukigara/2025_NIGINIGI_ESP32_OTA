@@ -1,0 +1,554 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+JP:wght@400;700;900&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/icon?family=Material+Icons+Round"
+      rel="stylesheet"
+    />
+    <style>
+      /* Presentation Slide Layout */
+      body {
+        background-color: transparent; /* Allows transparency if embedded in slides */
+        margin: 0;
+        padding: 20px;
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: "Inter", "Noto Sans JP", sans-serif;
+        overflow: hidden;
+      }
+
+      /* Smartphone Frame */
+      .smartphone-frame {
+        width: 375px;
+        height: 800px;
+        background: #000;
+        border-radius: 44px;
+        box-shadow:
+          0 0 0 1px #333,
+          /* Bezel edge */ 0 20px 50px rgba(0, 0, 0, 0.5); /* Drop shadow */
+        padding: 12px;
+        position: relative;
+        box-sizing: border-box;
+      }
+
+      /* Screen Area */
+      .smartphone-screen {
+        width: 100%;
+        height: 100%;
+        background: #f2f2f7;
+        border-radius: 32px;
+        overflow: hidden;
+        position: relative;
+        /* App content container */
+      }
+
+      /* Notch Mockup (Optional - simplistic dynamic island style) */
+      .smartphone-notch {
+        position: absolute;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 120px;
+        height: 35px;
+        background: #000;
+        border-radius: 18px;
+        z-index: 9999;
+      }
+
+      /* Button (Side) */
+      .power-btn {
+        position: absolute;
+        right: -4px;
+        top: 200px;
+        width: 4px;
+        height: 60px;
+        background: #222;
+        border-radius: 0 4px 4px 0;
+      }
+
+      .volume-btn {
+        position: absolute;
+        left: -4px;
+        top: 180px;
+        width: 4px;
+        height: 40px;
+        background: #222;
+        border-radius: 4px 0 0 4px;
+      }
+      .volume-btn.down {
+        top: 230px;
+      }
+
+      /* --- APP STYLES (Extracted & Scoped) --- */
+      /* Copying the essential styles from main.cpp, scoped to .smartphone-screen */
+      .smartphone-screen {
+        --bg: #f2f2f7;
+        --card-bg: #ffffff;
+        --text-main: #1c1c1e;
+        --text-sub: #8e8e93;
+        --accent-purple: #1a7f37;
+        --accent-blue: #2ea043;
+        --danger: #ff3b30;
+        --yt-red: #ff0000;
+        --success: #2ea043;
+        --shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+        --radius: 16px;
+
+        color: var(--text-main);
+        font-family: "Inter", "Noto Sans JP", sans-serif;
+
+        /* Reset body-like behavior inside screen */
+        display: flex !important;
+        flex-direction: column;
+      }
+
+      .smartphone-screen * {
+        -webkit-tap-highlight-color: transparent;
+        user-select: none;
+        -webkit-touch-callout: none;
+        box-sizing: border-box;
+      }
+
+      /* Main View Container */
+      #view-main,
+      #view-settings,
+      #view-history {
+        display: flex;
+        flex-direction: column;
+        height: 100%; /* Changed from 100dvh for container */
+        padding-top: max(
+          60px,
+          env(safe-area-inset-top)
+        ); /* Include notch space - Increased to 60px */
+        padding-bottom: max(20px, env(safe-area-inset-bottom));
+        padding-left: 20px;
+        padding-right: 20px;
+        box-sizing: border-box;
+        width: 100%;
+      }
+
+      /* Header */
+      .header {
+        margin-bottom: 12px;
+        padding-top: 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .header h1 {
+        font-size: 1.6rem;
+        font-weight: 800;
+        margin: 0;
+        letter-spacing: -0.02em;
+      }
+      .header-actions {
+        display: flex;
+        gap: 8px;
+      }
+      .btn-icon {
+        background: none;
+        border: none;
+        padding: 8px;
+        color: var(--text-main);
+        cursor: pointer;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      /* Status Dot */
+      .conn-dot {
+        width: 10px;
+        height: 10px;
+        background: var(--success);
+        border-radius: 50%;
+        margin-right: 8px;
+        transition: background 0.3s;
+      }
+
+      /* Cards */
+      .card {
+        background: var(--card-bg);
+        border-radius: var(--radius);
+        padding: 16px;
+        margin-bottom: 2%;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+        flex-shrink: 1;
+      }
+
+      /* Monitor Card */
+      .card-monitor {
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        padding-bottom: 2%;
+        flex-grow: 2;
+        justify-content: center;
+      }
+      .monitor-row {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        margin-bottom: 12px;
+      }
+      .status-badge {
+        background: #f2f2f7;
+        color: var(--text-sub);
+        padding: 6px 14px;
+        border-radius: 24px;
+        font-size: 0.9rem;
+        font-weight: 700;
+        transition: 0.3s;
+      }
+      .time-big {
+        font-size: 2.8rem;
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -2px;
+        line-height: 1;
+      }
+
+      /* Progress Bar */
+      .yt-progress-container {
+        width: 100%;
+        height: 8px;
+        background: #e5e5ea;
+        position: relative;
+        border-radius: 4px;
+        overflow: hidden;
+      }
+      .yt-progress-fill {
+        position: absolute;
+        left: 0;
+        top: 0;
+        height: 100%;
+        background: var(--yt-red);
+        border-radius: 4px;
+        width: 0%;
+      }
+
+      /* Preset Buttons */
+      .card-preset h3 {
+        margin: 0 0 10px 0;
+        font-size: 1rem;
+        color: var(--text-sub);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .preset-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 10px;
+      }
+      .preset-btn {
+        background: var(--bg);
+        border: 2px solid transparent;
+        padding: 22px 4px;
+        border-radius: 14px;
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--text-main);
+        text-align: center;
+        cursor: pointer;
+        transition: 0.2s;
+        white-space: nowrap;
+      }
+      .preset-btn.active {
+        background: #fff;
+        border-color: var(--accent-blue);
+        color: var(--accent-blue);
+        box-shadow: 0 4px 10px rgba(0, 122, 255, 0.15);
+      }
+
+      /* Settings List */
+      .card-settings {
+        padding: 18px;
+      }
+      .setting-item {
+        padding: 10px 0;
+        display: flex;
+        flex-direction: column;
+        border-bottom: 1px solid #f2f2f7;
+      }
+      .setting-item:last-child {
+        border-bottom: none;
+      }
+      .s-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+      .s-label {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--text-main);
+      }
+      .s-val {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--accent-purple);
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* Sliders */
+      input[type="range"] {
+        -webkit-appearance: none;
+        width: 100%;
+        height: 44px;
+        background: transparent;
+        cursor: pointer;
+        margin: 0;
+      }
+      input[type="range"]:focus {
+        outline: none;
+      }
+      input[type="range"]::-webkit-slider-runnable-track {
+        width: 100%;
+        height: 14px;
+        background: #e5e5ea;
+        border-radius: 7px;
+      }
+      #inp-str::-webkit-slider-runnable-track {
+        background: linear-gradient(
+          90deg,
+          #e5e5ea 0%,
+          #56d364 50%,
+          #1a7f37 100%
+        );
+      }
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        height: 32px;
+        width: 32px;
+        border-radius: 50%;
+        background: #ffffff;
+        border: 0.5px solid rgba(0, 0, 0, 0.04);
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+        margin-top: -9px;
+        transition: transform 0.1s;
+      }
+
+      /* Count Buttons */
+      .chk-group {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+      }
+      .chk-btn {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: #f2f2f7;
+        color: var(--text-sub);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: 0.2s;
+      }
+      .chk-btn.active {
+        background: var(--accent-blue);
+        color: white;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        transform: scale(1.05);
+      }
+
+      /* Bottom Bar */
+      .bottom-bar {
+        margin-top: auto;
+        display: flex;
+        gap: 12px;
+        filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.1));
+        flex-shrink: 0;
+        padding-bottom: 10px; /* Extra padding for bottom overlap */
+      }
+      .action-btn {
+        flex: 1;
+        height: 68px;
+        border-radius: 34px;
+        border: none;
+        font-size: 1.2rem;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        cursor: pointer;
+        box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.4);
+      }
+      .btn-start {
+        background: var(--accent-blue);
+        color: white;
+      }
+    </style>
+  </head>
+  <body style="background-color: transparent">
+    <!-- Setting background to transparent for screenshot/capture -->
+
+    <div class="smartphone-frame">
+      <div class="power-btn"></div>
+      <div class="volume-btn"></div>
+      <div class="volume-btn down"></div>
+
+      <div class="smartphone-screen">
+        <div class="smartphone-notch"></div>
+
+        <!-- === COPIED CONTENT START === -->
+        <div id="view-main">
+          <div class="header">
+            <div style="display: flex; align-items: center">
+              <div class="conn-dot" id="conn-dot"></div>
+              <h1>にぎにぎ</h1>
+            </div>
+            <div class="header-actions">
+              <button class="btn-icon">
+                <span class="material-icons-round" style="font-size: 28px"
+                  >history</span
+                >
+              </button>
+              <button class="btn-icon">
+                <span class="material-icons-round" style="font-size: 28px"
+                  >settings</span
+                >
+              </button>
+            </div>
+          </div>
+
+          <!-- 1. Monitor -->
+          <div class="card card-monitor">
+            <div class="monitor-row">
+              <div class="status-badge" id="status-badge">待機中</div>
+              <div class="time-big" id="time-display">0:03</div>
+              <!-- Fixed demo time -->
+            </div>
+            <div class="yt-progress-container">
+              <div
+                class="yt-progress-fill"
+                id="yt-fill"
+                style="width: 0%"
+              ></div>
+            </div>
+          </div>
+
+          <!-- 2. Preset -->
+          <div class="card card-preset">
+            <h3>プリセット</h3>
+            <div class="preset-grid" style="grid-template-columns: 1fr 1fr 1fr">
+              <div class="preset-btn" onclick="updateUI('soft', this)">
+                やわらか
+              </div>
+              <div class="preset-btn active" onclick="updateUI('normal', this)">
+                ふつう
+              </div>
+              <div class="preset-btn" onclick="updateUI('kosen', this)">
+                高専生用
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. Settings (Basic) -->
+          <div class="card card-settings">
+            <div class="setting-item">
+              <div class="s-header">
+                <span class="s-label">握りの強さ</span>
+                <span class="s-val" id="str-disp">50%</span>
+              </div>
+              <input
+                type="range"
+                id="inp-str"
+                min="0"
+                max="100"
+                value="50"
+                oninput="
+                  document.getElementById('str-disp').innerText =
+                    this.value + '%'
+                "
+              />
+            </div>
+
+            <div
+              class="setting-item"
+              style="
+                flex-direction: row;
+                align-items: center;
+                justify-content: space-between;
+                padding: 16px 0;
+              "
+            >
+              <span class="s-label">回数</span>
+              <div class="chk-group">
+                <div class="chk-btn">1</div>
+                <div class="chk-btn">2</div>
+                <div class="chk-btn active">3</div>
+                <div class="chk-btn">4</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom Actions -->
+          <div class="bottom-bar">
+            <button class="action-btn btn-start">
+              <span class="material-icons-round">play_arrow</span>
+              開始
+            </button>
+          </div>
+        </div>
+        <!-- === COPIED CONTENT END === -->
+      </div>
+    </div>
+
+    <script>
+      // Mock interactivity for demo purposes
+      function updateUI(mode, el) {
+        document
+          .querySelectorAll(".preset-btn")
+          .forEach((b) => b.classList.remove("active"));
+        el.classList.add("active");
+
+        const s = document.getElementById("inp-str");
+        if (mode === "soft") {
+          s.value = 30;
+        }
+        if (mode === "normal") {
+          s.value = 50;
+        }
+        if (mode === "kosen") {
+          s.value = 100;
+        }
+        document.getElementById("str-disp").innerText = s.value + "%";
+      }
+
+      document.querySelectorAll(".chk-btn").forEach((btn) => {
+        btn.addEventListener("click", function () {
+          document
+            .querySelectorAll(".chk-btn")
+            .forEach((b) => b.classList.remove("active"));
+          this.classList.add("active");
+          // Update mock time based on count (rough calc)
+          const count = parseInt(this.innerText);
+          const time = count * 1.3;
+          const min = Math.floor(time / 60);
+          const sec = Math.floor(time % 60);
+          document.getElementById("time-display").innerText =
+            `${min}:${sec < 10 ? "0" : ""}${sec}`;
+        });
+      });
+    </script>
+  </body>
+</html>
