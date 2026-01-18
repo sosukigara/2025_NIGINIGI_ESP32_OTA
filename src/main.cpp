@@ -451,6 +451,7 @@ input:checked + .slider:before { transform: translateX(22px); }
     <div class="setting-item">
       <span class="s-label">システム情報</span>
       <div style="margin-top:8px; font-size:0.9rem; color:var(--text-sub);">
+        <div>Version: <span style="font-family:monospace;">1.00</span></div>
         <div>Build: <span style="font-family:monospace;">{{BUILD_TIME}}</span></div>
         <div>IP: <span style="font-family:monospace;" id="ip-disp">...</span></div>
       </div>
