@@ -1,3 +1,4 @@
+// 動作確認済みバージョン (Once it works!)
 #include <Arduino.h>
 #include <WiFi.h>
 #include <WebServer.h>
