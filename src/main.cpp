@@ -142,10 +142,9 @@ body.ready .time-big { opacity: 1; }
   width: 100%; height: 8px; 
   background: #e5e5ea; position: relative;
   border-radius: 4px; overflow: hidden;
-  opacity: 0; 
-  transition: opacity 0.3s;
+  /* opacity: 0; removed for always visible */
 }
-.running .yt-progress-container { opacity: 1; } 
+/* .running .yt-progress-container { opacity: 1; } removed */ 
 
 .yt-progress-fill {
   position: absolute; left: 0; top: 0; height: 100%;
