@@ -23,6 +23,7 @@ const char *html_main = R"rawliteral(
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
 
 <style>
+
 :root {
   --bg: #f2f2f7;
   --card-bg: #ffffff;
@@ -49,9 +50,14 @@ body {
   background: var(--bg);
   color: var(--text-main);
   font-family: 'Inter', 'Noto Sans JP', sans-serif;
-  margin: 0; padding: 20px;
+  margin: 0; 
+  /* Safe Area Support */
+  padding-top: max(20px, env(safe-area-inset-top));
+  padding-bottom: max(120px, env(safe-area-inset-bottom) + 20px);
+  padding-left: max(20px, env(safe-area-inset-left));
+  padding-right: max(20px, env(safe-area-inset-right));
+  
   min-height: 100vh;
-  padding-bottom: 120px;
   transition: opacity 0.3s;
 }
 
@@ -70,7 +76,8 @@ body.offline::after {
   display: flex; justify-content: space-between; align-items: center;
 } 
 .header h1 {
-  font-size: 1.9rem; font-weight: 800; margin: 0; letter-spacing: -0.02em;
+  font-size: clamp(1.5rem, 5vw, 1.9rem); /* Responsive Font Size */
+  font-weight: 800; margin: 0; letter-spacing: -0.02em;
 }
 .header-actions {
   display: flex; gap: 8px;
@@ -94,7 +101,7 @@ body.offline::after {
 .card {
   background: var(--card-bg);
   border-radius: var(--radius);
-  padding: 20px; 
+  padding: clamp(16px, 4vw, 24px); /* Responsive Padding */
   margin-bottom: 20px;
   box-shadow: var(--shadow);
   overflow: hidden;
@@ -226,7 +233,10 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); backgrou
 
 /* Bottom Bar */
 .bottom-bar {
-  position: fixed; bottom: 30px; left: 18px; right: 18px;
+  position: fixed; 
+  bottom: max(30px, env(safe-area-inset-bottom) + 10px); /* Safe Area Support */
+  left: max(18px, env(safe-area-inset-left)); 
+  right: max(18px, env(safe-area-inset-right));
   z-index: 100; display: flex; gap: 12px;
   filter: drop-shadow(0 10px 20px rgba(0,0,0,0.1));
 }
@@ -275,7 +285,8 @@ input:checked + .slider:before { transform: translateX(22px); }
   border-radius: 28px;
   padding: 32px 28px; /* パディング調整 */
   text-align: center;
-  max-width: 85%; width: 340px;
+  max-width: 85%; 
+  width: min(340px, 90vw); /* Prevent overflow */
   box-shadow: 0 20px 40px rgba(0,0,0,0.2);
   animation: scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
@@ -342,10 +353,10 @@ input:checked + .slider:before { transform: translateX(22px); }
 
 /* Responsive */
 @media (max-height: 750px) {
-  body { padding: 12px; padding-bottom: 100px; }
+  /* body padding is handled by main styles now */
   .header { margin-bottom: 10px; }
-  .header h1 { font-size: 1.6rem; }
-  .card { padding: 14px; margin-bottom: 10px; }
+  /* h1 font size handled by clamp */
+  .card { margin-bottom: 10px; } /* padding handled by clamp */
   .time-big { font-size: 3.5rem; }
   .status-badge { font-size: 0.8rem; padding: 4px 10px; }
   .action-btn { height: 56px; font-size: 1.1rem; }
