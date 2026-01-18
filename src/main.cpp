@@ -29,11 +29,11 @@ const char *html_main = R"rawliteral(
   --card-bg: #ffffff;
   --text-main: #1c1c1e;
   --text-sub: #8e8e93;
-  --accent-purple: #248a3d;
-  --accent-blue: #34c759;
+  --accent-purple: #1a7f37;
+  --accent-blue: #2ea043;
   --danger: #ff3b30;
   --yt-red: #ff0000;
-  --success: #34c759;
+  --success: #2ea043;
   
   --shadow: 0 4px 12px rgba(0,0,0,0.03);
   --radius: 16px;
@@ -205,7 +205,7 @@ input[type=range]::-webkit-slider-runnable-track {
   border-radius: 7px;
 }
 #inp-str::-webkit-slider-runnable-track {
-  background: linear-gradient(90deg, #e5e5ea 0%, #7ce495 50%, #248a3d 100%);
+  background: linear-gradient(90deg, #e5e5ea 0%, #56d364 50%, #1a7f37 100%);
 }
 
 input[type=range]::-webkit-slider-thumb {
