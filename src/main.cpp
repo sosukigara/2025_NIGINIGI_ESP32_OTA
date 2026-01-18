@@ -72,7 +72,7 @@ body.offline::after {
 
 /* Header */
 .header { 
-  margin-bottom: 20px; padding-top: 0; 
+  margin-bottom: 12px; padding-top: 0; 
   display: flex; justify-content: space-between; align-items: center;
 } 
 .header h1 {
@@ -101,8 +101,8 @@ body.offline::after {
 .card {
   background: var(--card-bg);
   border-radius: var(--radius);
-  padding: clamp(16px, 4vw, 24px); /* Responsive Padding */
-  margin-bottom: 20px;
+  padding: clamp(14px, 3.5vw, 20px); /* Responsive Padding Reduced */
+  margin-bottom: 14px;
   box-shadow: var(--shadow);
   overflow: hidden;
 }
@@ -116,7 +116,7 @@ body.offline::after {
 .monitor-row { 
   display: flex; flex-direction: column; 
   align-items: center; justify-content: center;
-  gap: 8px; margin-bottom: 18px;
+  gap: 6px; margin-bottom: 12px;
 }
 .status-badge {
   background: #f2f2f7; color: var(--text-sub);
@@ -128,7 +128,7 @@ body.offline::after {
 
 /* Time Display */
 .time-big {
-  font-size: clamp(3.2rem, 16vw, 4.8rem); 
+  font-size: clamp(3.0rem, 15vw, 4.2rem); 
   font-weight: 800; 
   font-variant-numeric: tabular-nums; 
   letter-spacing: -2px; line-height: 1;
@@ -171,7 +171,7 @@ body.ready .time-big { opacity: 1; }
 /* Settings List */
 .card-settings { padding: 18px; } 
 .setting-item {
-  padding: 12px 0; display: flex; flex-direction: column; 
+  padding: 10px 0; display: flex; flex-direction: column; 
   border-bottom: 1px solid #f2f2f7;
 }
 .setting-item:last-child { border-bottom: none; }
