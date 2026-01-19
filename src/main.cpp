@@ -376,7 +376,7 @@ input:checked + .slider:before { transform: translateX(22px); }
       <div class="conn-dot" id="conn-dot"></div>
       <div style="display:flex; flex-direction:column;">
         <h1 style="line-height:1;">にぎにぎ</h1>
-        <span style="font-size:0.75rem; color:var(--text-sub); font-family:monospace;">v1.38</span>
+        <span style="font-size:0.75rem; color:var(--text-sub); font-family:monospace;">v1.39</span>
       </div>
     </div>
     <div class="header-actions">
@@ -457,7 +457,7 @@ input:checked + .slider:before { transform: translateX(22px); }
     <div class="setting-item">
       <span class="s-label">システム情報</span>
       <div style="margin-top:8px; font-size:0.9rem; color:var(--text-sub);">
-        <div>Version: <span style="font-family:monospace;">1.38</span></div>
+        <div>Version: <span style="font-family:monospace;">1.39</span></div>
         <div>Build: <span style="font-family:monospace;">{{BUILD_TIME}}</span></div>
         <div>IP: <span style="font-family:monospace;" id="ip-disp">...</span></div>
       </div>
@@ -481,18 +481,37 @@ input:checked + .slider:before { transform: translateX(22px); }
       </label>
     </div>
     
+    
     <div class="setting-item">
       <div class="s-header">
-        <span class="s-label">手動角度調整 (90度=閉, 270度=開)</span>
-        <span class="s-val" id="man-val">270°</span>
+        <span class="s-label">全サーボ同時調整 (90-270度)</span>
+        <span class="s-val" id="all-servo-val">270°</span>
       </div>
-      <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:8px;">
-        <button onclick="manualServoAngle(90)" style="padding:12px; border-radius:8px; border:1px solid #ddd; background:#f5f5f5; font-weight:bold; cursor:pointer;">90°</button>
-        <button onclick="manualServoAngle(135)" style="padding:12px; border-radius:8px; border:1px solid #ddd; background:#f5f5f5; font-weight:bold; cursor:pointer;">135°</button>
-        <button onclick="manualServoAngle(180)" style="padding:12px; border-radius:8px; border:1px solid #ddd; background:#f5f5f5; font-weight:bold; cursor:pointer;">180°</button>
-        <button onclick="manualServoAngle(225)" style="padding:12px; border-radius:8px; border:1px solid #ddd; background:#f5f5f5; font-weight:bold; cursor:pointer;">225°</button>
-        <button onclick="manualServoAngle(270)" style="padding:12px; border-radius:8px; border:1px solid #ddd; background:#f5f5f5; font-weight:bold; cursor:pointer;">270°</button>
+      <input type="range" min="90" max="270" value="270" step="1" oninput="setAllServos(this.value)" style="width:100%;">
+    </div>
+
+    <div class="setting-item">
+      <div class="s-header">
+        <span class="s-label">サーボ1 (GPIO 18)</span>
+        <span class="s-val" id="servo1-val">270°</span>
       </div>
+      <input type="range" min="90" max="270" value="270" step="1" oninput="setServo(1, this.value)" style="width:100%;">
+    </div>
+
+    <div class="setting-item">
+      <div class="s-header">
+        <span class="s-label">サーボ2 (GPIO 26)</span>
+        <span class="s-val" id="servo2-val">270°</span>
+      </div>
+      <input type="range" min="90" max="270" value="270" step="1" oninput="setServo(2, this.value)" style="width:100%;">
+    </div>
+
+    <div class="setting-item">
+      <div class="s-header">
+        <span class="s-label">サーボ3 (GPIO 27)</span>
+        <span class="s-val" id="servo3-val">270°</span>
+      </div>
+      <input type="range" min="90" max="270" value="270" step="1" oninput="setServo(3, this.value)" style="width:100%;">
     </div>
   </div>
 </div>
@@ -779,9 +798,17 @@ function closeCompletionModal() {
   document.getElementById('completion-modal').classList.remove('show');
 }
 
-function manualServoAngle(angle) {
-  document.getElementById('man-val').innerText = angle + '°';
-  fetch(`/api/manual_angle?angle=${angle}`);
+function setAllServos(angle) {
+  document.getElementById('all-servo-val').innerText = angle + '°';
+  document.getElementById('servo1-val').innerText = angle + '°';
+  document.getElementById('servo2-val').innerText = angle + '°';
+  document.getElementById('servo3-val').innerText = angle + '°';
+  fetch(`/api/servo_all?angle=${angle}`);
+}
+
+function setServo(servoNum, angle) {
+  document.getElementById(`servo${servoNum}-val`).innerText = angle + '°';
+  fetch(`/api/servo_individual?servo=${servoNum}&angle=${angle}`);
 }
 </script>
 </body>
@@ -1010,6 +1037,57 @@ void handleApiManualAngle() {
   server.send(200, "text/plain", "OK");
 }
 
+void handleApiServoAll() {
+  if (server.hasArg("angle")) {
+    int angle = server.arg("angle").toInt();
+    if (angle < 90)
+      angle = 90;
+    if (angle > 270)
+      angle = 270;
+
+    currentState = IDLE;
+    stateStartTime = millis();
+    attachAllServos();
+    setAllServosAngle(angle);
+
+    Serial.printf("[API] All Servos: %d degrees\n", angle);
+  }
+  server.send(200, "text/plain", "OK");
+}
+
+void handleApiServoIndividual() {
+  if (server.hasArg("servo") && server.hasArg("angle")) {
+    int servoNum = server.arg("servo").toInt();
+    int angle = server.arg("angle").toInt();
+    if (angle < 90)
+      angle = 90;
+    if (angle > 270)
+      angle = 270;
+
+    int us = map(angle, 0, 270, US_AT_0_DEG, US_AT_270_DEG);
+
+    currentState = IDLE;
+    stateStartTime = millis();
+
+    if (servoNum == 1) {
+      if (!servo1.attached())
+        servo1.attach(PIN_SERVO1, US_AT_0_DEG, US_AT_270_DEG);
+      servo1.writeMicroseconds(us);
+    } else if (servoNum == 2) {
+      if (!servo2.attached())
+        servo2.attach(PIN_SERVO2, US_AT_0_DEG, US_AT_270_DEG);
+      servo2.writeMicroseconds(us);
+    } else if (servoNum == 3) {
+      if (!servo3.attached())
+        servo3.attach(PIN_SERVO3, US_AT_0_DEG, US_AT_270_DEG);
+      servo3.writeMicroseconds(us);
+    }
+
+    Serial.printf("[API] Servo %d: %d degrees\n", servoNum, angle);
+  }
+  server.send(200, "text/plain", "OK");
+}
+
 void handleApiHistory() {
   String json = "[";
   for (size_t i = 0; i < historyLog.size(); i++) {
@@ -1077,6 +1155,8 @@ void setup() {
   server.on("/api/pin13", handleApiPin13);
   server.on("/api/manual", handleApiManual);
   server.on("/api/manual_angle", handleApiManualAngle);
+  server.on("/api/servo_all", handleApiServoAll);
+  server.on("/api/servo_individual", handleApiServoIndividual);
   server.on("/api/history", handleApiHistory);
 
   // Captive Portal Redirect
