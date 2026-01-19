@@ -376,7 +376,7 @@ input:checked + .slider:before { transform: translateX(22px); }
       <div class="conn-dot" id="conn-dot"></div>
       <div style="display:flex; flex-direction:column;">
         <h1 style="line-height:1;">にぎにぎ</h1>
-        <span style="font-size:0.75rem; color:var(--text-sub); font-family:monospace;">v1.40</span>
+        <span style="font-size:0.75rem; color:var(--text-sub); font-family:monospace;">v1.41</span>
       </div>
     </div>
     <div class="header-actions">
@@ -457,7 +457,7 @@ input:checked + .slider:before { transform: translateX(22px); }
     <div class="setting-item">
       <span class="s-label">システム情報</span>
       <div style="margin-top:8px; font-size:0.9rem; color:var(--text-sub);">
-        <div>Version: <span style="font-family:monospace;">1.40</span></div>
+        <div>Version: <span style="font-family:monospace;">1.41</span></div>
         <div>Build: <span style="font-family:monospace;">{{BUILD_TIME}}</span></div>
         <div>IP: <span style="font-family:monospace;" id="ip-disp">...</span></div>
       </div>
@@ -559,7 +559,7 @@ let currentPresetName = "ふつう"; // 初期値
 // Animation Variables
 let isRunning = false;
 let isManualStop = false; 
-let sessionTotalDur = 1.0; 
+let sessionTotalDur = 0; // 初期設定修正 
 let sessionStartTime = 0;
 let lastStartAction = 0; 
 
@@ -609,7 +609,7 @@ function updTimeDisp() {
   const r = parseFloat(document.getElementById('inp-reach').value) || 0.5;
   const total = tgtCount * (h + r + 0.3);
   document.getElementById('time-display').innerText = fmtTime(Math.ceil(total));
-  sessionTotalDur = total;
+  // sessionTotalDur = total; // 修正
 }
 
 function setCount(n, el) {
@@ -625,10 +625,33 @@ function setPreset(mode, el) {
   currentPresetName = el.getAttribute('data-name');
   
   const s = document.getElementById('inp-str');
-  if(mode==='soft') { s.value=30; }
-  if(mode==='normal') { s.value=50; }
-  if(mode==='kosen') { s.value=100; }
+  let count = 3;
+
+  if(mode==='soft') { 
+    s.value=30; 
+    count = 2;
+  }
+  if(mode==='normal') { 
+    s.value=50; 
+    count = 3;
+  }
+  if(mode==='kosen') { 
+    s.value=100; 
+    count = 5;
+  }
+  
   updVal('str-disp', s.value, '%');
+
+  tgtCount = count;
+  document.querySelectorAll('.chk-btn').forEach(b => {
+    if(parseInt(b.innerText) === count) {
+      b.classList.add('active');
+    } else {
+      b.classList.remove('active');
+    }
+  });
+
+  if(!isRunning) updTimeDisp();
 }
 
 function showSettings() {
@@ -827,7 +850,7 @@ const byte DNS_PORT = 53;
 Preferences preferences;
 
 Servo servo1, servo2, servo3;
-const int PIN_SERVO1 = 18;
+const int PIN_SERVO1 = 25;
 const int PIN_SERVO2 = 26;
 const int PIN_SERVO3 = 27;
 
