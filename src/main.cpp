@@ -376,17 +376,17 @@ input:checked + .slider:before { transform: translateX(22px); }
       <div class="conn-dot" id="conn-dot"></div>
       <div style="display:flex; flex-direction:column;">
         <h1 style="line-height:1;">にぎにぎ</h1>
-        <span style="font-size:0.75rem; color:var(--text-sub); font-family:monospace;">v1.37</span>
+        <span style="font-size:0.75rem; color:var(--text-sub); font-family:monospace;">v1.38</span>
       </div>
     </div>
     <div class="header-actions">
         <!-- History Icon -->
-        <button class="btn-icon" onclick="showHistory()">
-          <span class="material-icons-round" style="font-size: 28px;">history</span>
+        <button class="btn-icon" onclick="showHistory()" style="font-weight:700; padding:8px 12px; border:1px solid #ddd; border-radius:12px; background:#f5f5f5;">
+          履歴
         </button>
         <!-- Settings Icon -->
-        <button class="btn-icon" onclick="showSettings()">
-          <span class="material-icons-round" style="font-size: 28px;">settings</span>
+        <button class="btn-icon" onclick="showSettings()" style="font-weight:700; padding:8px 12px; border:1px solid #ddd; border-radius:12px; background:#f5f5f5;">
+          設定
         </button>
     </div>
   </div>
@@ -436,11 +436,9 @@ input:checked + .slider:before { transform: translateX(22px); }
   <!-- Bottom Actions -->
   <div class="bottom-bar">
     <button class="action-btn btn-start" onclick="start()">
-      <span class="material-icons-round">play_arrow</span>
       開始
     </button>
     <button class="action-btn btn-stop" onclick="stop()">
-      <span class="material-icons-round">stop_circle</span>
       停止
     </button>
   </div>
@@ -459,7 +457,7 @@ input:checked + .slider:before { transform: translateX(22px); }
     <div class="setting-item">
       <span class="s-label">システム情報</span>
       <div style="margin-top:8px; font-size:0.9rem; color:var(--text-sub);">
-        <div>Version: <span style="font-family:monospace;">1.37</span></div>
+        <div>Version: <span style="font-family:monospace;">1.38</span></div>
         <div>Build: <span style="font-family:monospace;">{{BUILD_TIME}}</span></div>
         <div>IP: <span style="font-family:monospace;" id="ip-disp">...</span></div>
       </div>
@@ -485,10 +483,16 @@ input:checked + .slider:before { transform: translateX(22px); }
     
     <div class="setting-item">
       <div class="s-header">
-        <span class="s-label">手動操作 (0=開, 100=閉)</span>
-        <span class="s-val" id="man-val">0%</span>
+        <span class="s-label">手動角度調整 (90度=閉, 270度=開)</span>
+        <span class="s-val" id="man-val">270°</span>
       </div>
-      <input type="range" min="0" max="100" value="0" oninput="manualServo(this.value)">
+      <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:8px;">
+        <button onclick="manualServoAngle(90)" style="padding:12px; border-radius:8px; border:1px solid #ddd; background:#f5f5f5; font-weight:bold; cursor:pointer;">90°</button>
+        <button onclick="manualServoAngle(135)" style="padding:12px; border-radius:8px; border:1px solid #ddd; background:#f5f5f5; font-weight:bold; cursor:pointer;">135°</button>
+        <button onclick="manualServoAngle(180)" style="padding:12px; border-radius:8px; border:1px solid #ddd; background:#f5f5f5; font-weight:bold; cursor:pointer;">180°</button>
+        <button onclick="manualServoAngle(225)" style="padding:12px; border-radius:8px; border:1px solid #ddd; background:#f5f5f5; font-weight:bold; cursor:pointer;">225°</button>
+        <button onclick="manualServoAngle(270)" style="padding:12px; border-radius:8px; border:1px solid #ddd; background:#f5f5f5; font-weight:bold; cursor:pointer;">270°</button>
+      </div>
     </div>
   </div>
 </div>
@@ -774,6 +778,11 @@ function showCompletionModal() {
 function closeCompletionModal() {
   document.getElementById('completion-modal').classList.remove('show');
 }
+
+function manualServoAngle(angle) {
+  document.getElementById('man-val').innerText = angle + '°';
+  fetch(`/api/manual_angle?angle=${angle}`);
+}
 </script>
 </body>
 </html>
@@ -785,7 +794,7 @@ const byte DNS_PORT = 53;
 Preferences preferences;
 
 Servo servo1, servo2, servo3;
-const int PIN_SERVO1 = 25;
+const int PIN_SERVO1 = 18;
 const int PIN_SERVO2 = 26;
 const int PIN_SERVO3 = 27;
 
@@ -840,7 +849,9 @@ int strengthToUs(int strength) {
     strength = 0;
   if (strength > 100)
     strength = 100;
-  return map(strength, 0, 100, US_AT_270_DEG, US_AT_0_DEG);
+  // 270度(開) → 90度(最大閉) の範囲に制限
+  int targetAngle = map(strength, 0, 100, 270, 90);
+  return map(targetAngle, 0, 270, US_AT_0_DEG, US_AT_270_DEG);
 }
 
 void attachAllServos() {
@@ -980,6 +991,25 @@ void handleApiManual() {
   server.send(200, "text/plain", "OK");
 }
 
+void handleApiManualAngle() {
+  if (server.hasArg("angle")) {
+    int angle = server.arg("angle").toInt();
+    // 90度～270度の範囲に制限
+    if (angle < 90)
+      angle = 90;
+    if (angle > 270)
+      angle = 270;
+
+    currentState = IDLE;
+    stateStartTime = millis();
+    attachAllServos();
+    setAllServosAngle(angle);
+
+    Serial.printf("[API] Manual Angle: %d degrees\n", angle);
+  }
+  server.send(200, "text/plain", "OK");
+}
+
 void handleApiHistory() {
   String json = "[";
   for (size_t i = 0; i < historyLog.size(); i++) {
@@ -1046,6 +1076,7 @@ void setup() {
   server.on("/api/settings", handleApiSettings);
   server.on("/api/pin13", handleApiPin13);
   server.on("/api/manual", handleApiManual);
+  server.on("/api/manual_angle", handleApiManualAngle);
   server.on("/api/history", handleApiHistory);
 
   // Captive Portal Redirect
