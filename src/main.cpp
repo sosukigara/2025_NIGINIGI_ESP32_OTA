@@ -9,7 +9,6 @@
 #include <time.h>
 #include <vector>
 
-
 // --- UI Content ---
 const char *html_main = R"rawliteral(
 <!DOCTYPE html>
@@ -18,10 +17,7 @@ const char *html_main = R"rawliteral(
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Onigiri Journal</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+<title>Onigiri Journal</title>
 
 <style>
 
@@ -47,10 +43,9 @@ const char *html_main = R"rawliteral(
   box-sizing: border-box;
 }
 
-body {
   background: var(--bg);
   color: var(--text-main);
-  font-family: 'Inter', 'Noto Sans JP', sans-serif;
+  font-family: sans-serif;
   margin: 0; 
   padding: 0;
   height: 100dvh;
@@ -379,7 +374,10 @@ input:checked + .slider:before { transform: translateX(22px); }
   <div class="header">
     <div style="display:flex; align-items:center;">
       <div class="conn-dot" id="conn-dot"></div>
-      <h1>にぎにぎ</h1>
+      <div style="display:flex; flex-direction:column;">
+        <h1 style="line-height:1;">にぎにぎ</h1>
+        <span style="font-size:0.75rem; color:var(--text-sub); font-family:monospace;">v1.37</span>
+      </div>
     </div>
     <div class="header-actions">
         <!-- History Icon -->
@@ -451,8 +449,8 @@ input:checked + .slider:before { transform: translateX(22px); }
 <!-- VIEW: SETTINGS -->
 <div id="view-settings" style="display:none; padding-bottom:40px;">
   <div class="header" style="display:flex; align-items:center; gap:10px;">
-    <button onclick="showMain()" style="background:none; border:none; color:var(--text-main); cursor:pointer; padding:0;">
-      <span class="material-icons-round" style="font-size:2rem;">arrow_back</span>
+    <button onclick="showMain()" style="background:none; border:none; color:var(--text-main); cursor:pointer; padding:0; font-size:2rem; font-weight:bold;">
+      ←
     </button>
     <h1>詳細設定</h1>
   </div>
@@ -461,7 +459,7 @@ input:checked + .slider:before { transform: translateX(22px); }
     <div class="setting-item">
       <span class="s-label">システム情報</span>
       <div style="margin-top:8px; font-size:0.9rem; color:var(--text-sub);">
-        <div>Version: <span style="font-family:monospace;">1.36</span></div>
+        <div>Version: <span style="font-family:monospace;">1.37</span></div>
         <div>Build: <span style="font-family:monospace;">{{BUILD_TIME}}</span></div>
         <div>IP: <span style="font-family:monospace;" id="ip-disp">...</span></div>
       </div>
@@ -498,8 +496,8 @@ input:checked + .slider:before { transform: translateX(22px); }
 <!-- VIEW: HISTORY -->
 <div id="view-history" style="display:none; padding-bottom:40px;">
   <div class="header" style="display:flex; align-items:center; gap:10px;">
-    <button onclick="showMain()" style="background:none; border:none; color:var(--text-main); cursor:pointer; padding:0;">
-       <span class="material-icons-round" style="font-size:2rem;">arrow_back</span>
+    <button onclick="showMain()" style="background:none; border:none; color:var(--text-main); cursor:pointer; padding:0; font-size:2rem; font-weight:bold;">
+       ←
     </button>
     <h1>履歴</h1>
   </div>
@@ -782,6 +780,8 @@ function closeCompletionModal() {
 )rawliteral";
 
 WebServer server(80);
+DNSServer dnsServer;
+const byte DNS_PORT = 53;
 Preferences preferences;
 
 Servo servo1, servo2, servo3;
@@ -996,14 +996,6 @@ void handleApiHistory() {
   server.send(200, "application/json", json);
 }
 
-void handleResetWifi() {
-  WiFiManager wm;
-  wm.resetSettings();
-  server.send(200, "text/plain", "WiFi settings reset. Restarting...");
-  delay(1000);
-  ESP.restart();
-}
-
 void handleRoot() {
   String html = html_main;
   html.replace("{{BUILD_TIME}}", __DATE__ " " __TIME__);
@@ -1018,31 +1010,7 @@ void setup() {
   reachTimeSec = preferences.getFloat("reach", 0.5);
   pin13State = preferences.getInt("pin13", 0);
 
-  pinMode(0, INPUT_PULLUP);
   pinMode(13, OUTPUT);
-
-  if (digitalRead(0) == LOW) {
-    Serial.println("BOOT button pressed. Waiting 3 seconds to reset WiFi...");
-    unsigned long startPress = millis();
-    bool performReset = false;
-    while (digitalRead(0) == LOW) {
-      digitalWrite(13, (millis() / 100) % 2);
-      if (millis() - startPress > 3000) {
-        performReset = true;
-        break;
-      }
-      delay(10);
-    }
-    if (performReset) {
-      digitalWrite(13, HIGH);
-      Serial.println("Resetting WiFi Settings...");
-      WiFiManager wm;
-      wm.resetSettings();
-      Serial.println("Done. Restarting...");
-      delay(1000);
-      ESP.restart();
-    }
-  }
 
   digitalWrite(13, pin13State ? HIGH : LOW);
 
@@ -1058,29 +1026,18 @@ void setup() {
   attachAllServos();
   setAllServosAngle(270);
 
-  // --- WiFiManager ---
-  WiFiManager wm;
-  wm.setConfigPortalTimeout(180);
+  // --- AP Mode Setup (Yakisoba-Shiro) ---
+  WiFi.disconnect(true);
+  delay(100);
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP("焼きそば四郎"); // No Password
 
-  bool res = wm.autoConnect("Onigiri-Setup", "12345678");
+  Serial.print("AP IPs: ");
+  Serial.println(WiFi.softAPIP());
 
-  if (!res) {
-    Serial.println("Failed to connect or timeout occurred");
-    WiFi.mode(WIFI_AP);
-    WiFi.softAP("Onigiri-Offline", "12345678");
-    Serial.print("Offline AP Started. IP: ");
-    Serial.println(WiFi.softAPIP());
-  } else {
-    Serial.println("connected...yeey :)");
-    Serial.print("IP: ");
-    Serial.println(WiFi.localIP());
-    // JST settings
-    configTime(9 * 3600, 0, "pool.ntp.org");
-  }
-
-  if (MDNS.begin("onigiri")) {
-    Serial.println("MDNS responder started");
-  }
+  // DNS Server (Captive Portal)
+  dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
+  dnsServer.start(DNS_PORT, "*", WiFi.softAPIP());
 
   server.on("/", handleRoot);
   server.on("/api/status", handleApiStatus);
@@ -1090,14 +1047,16 @@ void setup() {
   server.on("/api/pin13", handleApiPin13);
   server.on("/api/manual", handleApiManual);
   server.on("/api/history", handleApiHistory);
-  server.on("/reset_wifi", handleResetWifi);
-  server.onNotFound([]() { server.send(404, "text/plain", "Not Found"); });
+
+  // Captive Portal Redirect
+  server.onNotFound([]() { handleRoot(); });
 
   server.begin();
   Serial.println("Ready.");
 }
 
 void loop() {
+  dnsServer.processNextRequest();
   server.handleClient();
 
   unsigned long now = millis();
