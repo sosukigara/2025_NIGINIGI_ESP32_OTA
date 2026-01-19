@@ -376,7 +376,7 @@ input:checked + .slider:before { transform: translateX(22px); }
       <div class="conn-dot" id="conn-dot"></div>
       <div style="display:flex; flex-direction:column;">
         <h1 style="line-height:1;">にぎにぎ</h1>
-        <span style="font-size:0.75rem; color:var(--text-sub); font-family:monospace;">v1.39</span>
+        <span style="font-size:0.75rem; color:var(--text-sub); font-family:monospace;">v1.40</span>
       </div>
     </div>
     <div class="header-actions">
@@ -457,7 +457,7 @@ input:checked + .slider:before { transform: translateX(22px); }
     <div class="setting-item">
       <span class="s-label">システム情報</span>
       <div style="margin-top:8px; font-size:0.9rem; color:var(--text-sub);">
-        <div>Version: <span style="font-family:monospace;">1.39</span></div>
+        <div>Version: <span style="font-family:monospace;">1.40</span></div>
         <div>Build: <span style="font-family:monospace;">{{BUILD_TIME}}</span></div>
         <div>IP: <span style="font-family:monospace;" id="ip-disp">...</span></div>
       </div>
@@ -727,6 +727,11 @@ function animateLoop() {
     if (pct < 0) pct = 0;
     if (pct > 100) pct = 100;
     document.getElementById('yt-fill').style.width = pct + "%";
+    
+    // 残り時間が0になったら即座に完了処理
+    if (remaining <= 0 && !isManualStop) {
+      finishSession();
+    }
   }
   requestAnimationFrame(animateLoop);
 }
@@ -760,10 +765,9 @@ function syncStatus() {
         }
 
       } else {
+        // IDLEに戻った = 動作完了
         if (isRunning) {
-           if (Date.now() - lastStartAction >= 2000) {
-             finishSession();
-           }
+          finishSession();
         }
       }
       lastStatus = d.state;
@@ -775,6 +779,7 @@ function syncStatus() {
 setInterval(syncStatus, 1000);
 
 function finishSession() {
+  if (!isRunning) return; // 既に完了済みなら何もしない
   isRunning = false;
   document.body.classList.remove('running');
   document.getElementById('status-badge').innerText = "待機中";
@@ -784,6 +789,7 @@ function finishSession() {
   if (!isManualStop) {
     showCompletionModal();
   }
+  isManualStop = false;
 }
 
 function showCompletionModal() {
