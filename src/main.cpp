@@ -1,13 +1,14 @@
 // 動作確認済みバージョン (Once it works!)
 #include <Arduino.h>
 #include <ESP32Servo.h>
+#include <ESPmDNS.h>
 #include <Preferences.h>
 #include <WebServer.h>
 #include <WiFi.h>
+#include <WiFiManager.h>
 #include <time.h>
 #include <vector>
-#include <WiFiManager.h>
-#include <ESPmDNS.h>
+
 
 // --- UI Content ---
 const char *html_main = R"rawliteral(
@@ -460,7 +461,7 @@ input:checked + .slider:before { transform: translateX(22px); }
     <div class="setting-item">
       <span class="s-label">システム情報</span>
       <div style="margin-top:8px; font-size:0.9rem; color:var(--text-sub);">
-        <div>Version: <span style="font-family:monospace;">1.35</span></div>
+        <div>Version: <span style="font-family:monospace;">1.36</span></div>
         <div>Build: <span style="font-family:monospace;">{{BUILD_TIME}}</span></div>
         <div>IP: <span style="font-family:monospace;" id="ip-disp">...</span></div>
       </div>
@@ -814,7 +815,7 @@ unsigned long sessionStartTime = 0;
 // パラメータ
 float holdTimeSec = 0.5;
 float reachTimeSec = 0.5;
-int targetStrength = 50; 
+int targetStrength = 50;
 int targetCount = 3;
 int currentCycle = 0;
 int pin13State = 0;
@@ -826,46 +827,63 @@ void setAllServosUs(int us) {
 }
 
 void setAllServosAngle(int angle) {
-  if (angle < 0) angle = 0;
-  if (angle > 270) angle = 270;
+  if (angle < 0)
+    angle = 0;
+  if (angle > 270)
+    angle = 270;
   int us = map(angle, 0, 270, US_AT_0_DEG, US_AT_270_DEG);
   setAllServosUs(us);
 }
 
 int strengthToUs(int strength) {
-  if (strength < 0) strength = 0;
-  if (strength > 100) strength = 100;
+  if (strength < 0)
+    strength = 0;
+  if (strength > 100)
+    strength = 100;
   return map(strength, 0, 100, US_AT_270_DEG, US_AT_0_DEG);
 }
 
 void attachAllServos() {
-    if (!servo1.attached()) servo1.attach(PIN_SERVO1, US_AT_0_DEG, US_AT_270_DEG);
-    if (!servo2.attached()) servo2.attach(PIN_SERVO2, US_AT_0_DEG, US_AT_270_DEG);
-    if (!servo3.attached()) servo3.attach(PIN_SERVO3, US_AT_0_DEG, US_AT_270_DEG);
+  if (!servo1.attached())
+    servo1.attach(PIN_SERVO1, US_AT_0_DEG, US_AT_270_DEG);
+  if (!servo2.attached())
+    servo2.attach(PIN_SERVO2, US_AT_0_DEG, US_AT_270_DEG);
+  if (!servo3.attached())
+    servo3.attach(PIN_SERVO3, US_AT_0_DEG, US_AT_270_DEG);
 }
 
 void detachAllServos() {
-    if (servo1.attached()) servo1.detach();
-    if (servo2.attached()) servo2.detach();
-    if (servo3.attached()) servo3.detach();
+  if (servo1.attached())
+    servo1.detach();
+  if (servo2.attached())
+    servo2.detach();
+  if (servo3.attached())
+    servo3.detach();
 }
 
 // API: Start
 void handleApiStart() {
-  if (server.hasArg("str")) targetStrength = server.arg("str").toInt();
-  if (server.hasArg("cnt")) targetCount = server.arg("cnt").toInt();
-  if (server.hasArg("preset")) currentSessionPreset = server.arg("preset");
-  else currentSessionPreset = "カスタム";
-  
-  if (targetStrength > 100) targetStrength = 100;
-  if (targetStrength < 0) targetStrength = 0;
+  if (server.hasArg("str"))
+    targetStrength = server.arg("str").toInt();
+  if (server.hasArg("cnt"))
+    targetCount = server.arg("cnt").toInt();
+  if (server.hasArg("preset"))
+    currentSessionPreset = server.arg("preset");
+  else
+    currentSessionPreset = "カスタム";
 
-  Serial.printf("[API] Start: Str=%d%%, Cnt=%d, Preset=%s\n", targetStrength, targetCount, currentSessionPreset.c_str());
-  
+  if (targetStrength > 100)
+    targetStrength = 100;
+  if (targetStrength < 0)
+    targetStrength = 0;
+
+  Serial.printf("[API] Start: Str=%d%%, Cnt=%d, Preset=%s\n", targetStrength,
+                targetCount, currentSessionPreset.c_str());
+
   currentCycle = 0;
   sessionStartTime = millis();
-  currentState = PREPARE_SQUEEZE; 
-  
+  currentState = PREPARE_SQUEEZE;
+
   server.send(200, "text/plain", "OK");
 }
 
@@ -886,7 +904,7 @@ void handleApiSettings() {
     reachTimeSec = server.arg("reach").toFloat();
     preferences.putFloat("reach", reachTimeSec);
   }
-  
+
   String json = "{";
   json += "\"hold\":" + String(holdTimeSec) + ",";
   json += "\"reach\":" + String(reachTimeSec) + ",";
@@ -907,17 +925,29 @@ void handleApiPin13() {
 void handleApiStatus() {
   String s;
   switch (currentState) {
-    case IDLE: s = "IDLE"; break;
-    case PREPARE_SQUEEZE: s = "PREPARE_SQUEEZE"; break;
-    case SQUEEZING: s = "SQUEEZING"; break;
-    case HOLDING: s = "HOLDING"; break;
-    case RELEASING: s = "RELEASING"; break;
-    case WAIT_CYCLE: s = "WAIT_CYCLE"; break;
+  case IDLE:
+    s = "IDLE";
+    break;
+  case PREPARE_SQUEEZE:
+    s = "PREPARE_SQUEEZE";
+    break;
+  case SQUEEZING:
+    s = "SQUEEZING";
+    break;
+  case HOLDING:
+    s = "HOLDING";
+    break;
+  case RELEASING:
+    s = "RELEASING";
+    break;
+  case WAIT_CYCLE:
+    s = "WAIT_CYCLE";
+    break;
   }
 
-  float cycleDur = reachTimeSec + holdTimeSec + 0.3; 
+  float cycleDur = reachTimeSec + holdTimeSec + 0.3;
   float totalDur = targetCount * cycleDur;
-  
+
   String json = "{";
   json += "\"state\":\"" + s + "\",";
   json += "\"cycle\":" + String(currentCycle) + ",";
@@ -932,34 +962,38 @@ void handleApiStatus() {
 void handleApiManual() {
   if (server.hasArg("val")) {
     int pct = server.arg("val").toInt();
-    if (pct < 0) pct = 0;
-    if (pct > 100) pct = 100;
+    if (pct < 0)
+      pct = 0;
+    if (pct > 100)
+      pct = 100;
 
     int targetUs = strengthToUs(pct);
-    
+
     currentState = IDLE;
-    stateStartTime = millis(); // Reset idle timer so it doesn't detach immediately
+    stateStartTime =
+        millis(); // Reset idle timer so it doesn't detach immediately
     attachAllServos();
     setAllServosUs(targetUs);
-    
+
     Serial.printf("[API] Manual: %d%% -> %dus\n", pct, targetUs);
   }
   server.send(200, "text/plain", "OK");
 }
 
 void handleApiHistory() {
-    String json = "[";
-    for(size_t i=0; i<historyLog.size(); i++) {
-        if(i > 0) json += ",";
-        json += "{";
-        json += "\"time\":\"" + historyLog[i].timeStr + "\",";
-        json += "\"preset\":\"" + historyLog[i].preset + "\",";
-        json += "\"strength\":" + String(historyLog[i].strength) + ",";
-        json += "\"count\":" + String(historyLog[i].count);
-        json += "}";
-    }
-    json += "]";
-    server.send(200, "application/json", json);
+  String json = "[";
+  for (size_t i = 0; i < historyLog.size(); i++) {
+    if (i > 0)
+      json += ",";
+    json += "{";
+    json += "\"time\":\"" + historyLog[i].timeStr + "\",";
+    json += "\"preset\":\"" + historyLog[i].preset + "\",";
+    json += "\"strength\":" + String(historyLog[i].strength) + ",";
+    json += "\"count\":" + String(historyLog[i].count);
+    json += "}";
+  }
+  json += "]";
+  server.send(200, "application/json", json);
 }
 
 void handleResetWifi() {
@@ -978,58 +1012,58 @@ void handleRoot() {
 
 void setup() {
   Serial.begin(115200);
-  
+
   preferences.begin("job", false);
   holdTimeSec = preferences.getFloat("hold", 0.5);
   reachTimeSec = preferences.getFloat("reach", 0.5);
   pin13State = preferences.getInt("pin13", 0);
-  
+
   pinMode(0, INPUT_PULLUP);
   pinMode(13, OUTPUT);
-  
+
   if (digitalRead(0) == LOW) {
     Serial.println("BOOT button pressed. Waiting 3 seconds to reset WiFi...");
     unsigned long startPress = millis();
     bool performReset = false;
     while (digitalRead(0) == LOW) {
-        digitalWrite(13, (millis() / 100) % 2);
-        if (millis() - startPress > 3000) {
-            performReset = true;
-            break;
-        }
-        delay(10);
+      digitalWrite(13, (millis() / 100) % 2);
+      if (millis() - startPress > 3000) {
+        performReset = true;
+        break;
+      }
+      delay(10);
     }
     if (performReset) {
-        digitalWrite(13, HIGH);
-        Serial.println("Resetting WiFi Settings...");
-        WiFiManager wm;
-        wm.resetSettings();
-        Serial.println("Done. Restarting...");
-        delay(1000);
-        ESP.restart();
+      digitalWrite(13, HIGH);
+      Serial.println("Resetting WiFi Settings...");
+      WiFiManager wm;
+      wm.resetSettings();
+      Serial.println("Done. Restarting...");
+      delay(1000);
+      ESP.restart();
     }
   }
 
   digitalWrite(13, pin13State ? HIGH : LOW);
-  
+
   ESP32PWM::allocateTimer(0);
   ESP32PWM::allocateTimer(1);
   ESP32PWM::allocateTimer(2);
   ESP32PWM::allocateTimer(3);
-  
+
   servo1.setPeriodHertz(50);
   servo2.setPeriodHertz(50);
   servo3.setPeriodHertz(50);
-  
+
   attachAllServos();
   setAllServosAngle(270);
-  
+
   // --- WiFiManager ---
   WiFiManager wm;
-  wm.setConfigPortalTimeout(180); 
-  
+  wm.setConfigPortalTimeout(180);
+
   bool res = wm.autoConnect("Onigiri-Setup", "12345678");
-  
+
   if (!res) {
     Serial.println("Failed to connect or timeout occurred");
     WiFi.mode(WIFI_AP);
@@ -1038,7 +1072,8 @@ void setup() {
     Serial.println(WiFi.softAPIP());
   } else {
     Serial.println("connected...yeey :)");
-    Serial.print("IP: "); Serial.println(WiFi.localIP());
+    Serial.print("IP: ");
+    Serial.println(WiFi.localIP());
     // JST settings
     configTime(9 * 3600, 0, "pool.ntp.org");
   }
@@ -1056,7 +1091,7 @@ void setup() {
   server.on("/api/manual", handleApiManual);
   server.on("/api/history", handleApiHistory);
   server.on("/reset_wifi", handleResetWifi);
-  server.onNotFound([](){ server.send(404, "text/plain", "Not Found"); });
+  server.onNotFound([]() { server.send(404, "text/plain", "Not Found"); });
 
   server.begin();
   Serial.println("Ready.");
@@ -1064,95 +1099,94 @@ void setup() {
 
 void loop() {
   server.handleClient();
-  
+
   unsigned long now = millis();
-  
+
   if (currentState != lastState) {
     stateStartTime = now;
     Serial.printf("State: %d\n", currentState);
-    
+
     if (currentState == PREPARE_SQUEEZE) {
-        attachAllServos();
-        setAllServosAngle(270);
+      attachAllServos();
+      setAllServosAngle(270);
     }
     lastState = currentState;
   }
 
   switch (currentState) {
-    case IDLE:
-      // Auto Detach Removed as per user request
-      break;
+  case IDLE:
+    // Auto Detach Removed as per user request
+    break;
 
-    case PREPARE_SQUEEZE:
-      setAllServosAngle(270);
-      if (now - stateStartTime > 300) {
-          currentState = SQUEEZING;
-      }
-      break;
-      
-    case SQUEEZING:
-      {
-          unsigned long duration = reachTimeSec * 1000;
-          unsigned long elapsed = now - stateStartTime;
-          int startUs = US_AT_270_DEG;
-          int targetUs = strengthToUs(targetStrength);
+  case PREPARE_SQUEEZE:
+    setAllServosAngle(270);
+    if (now - stateStartTime > 300) {
+      currentState = SQUEEZING;
+    }
+    break;
 
-          if (elapsed >= duration) {
-              setAllServosUs(targetUs);
-              currentState = HOLDING;
-          } else {
-              float progress = (float)elapsed / (float)duration;
-              int currentUs = startUs + (targetUs - startUs) * progress;
-              setAllServosUs(currentUs);
-          }
-      }
-      break;
-      
-    case HOLDING:
-      if (now - stateStartTime >= (holdTimeSec * 1000)) {
-          currentState = RELEASING;
-      }
-      break;
-      
-    case RELEASING:
+  case SQUEEZING: {
+    unsigned long duration = reachTimeSec * 1000;
+    unsigned long elapsed = now - stateStartTime;
+    int startUs = US_AT_270_DEG;
+    int targetUs = strengthToUs(targetStrength);
+
+    if (elapsed >= duration) {
+      setAllServosUs(targetUs);
+      currentState = HOLDING;
+    } else {
+      float progress = (float)elapsed / (float)duration;
+      int currentUs = startUs + (targetUs - startUs) * progress;
+      setAllServosUs(currentUs);
+    }
+  } break;
+
+  case HOLDING:
+    if (now - stateStartTime >= (holdTimeSec * 1000)) {
+      currentState = RELEASING;
+    }
+    break;
+
+  case RELEASING:
+    setAllServosAngle(270);
+    if (now - stateStartTime >= 300) {
+      currentState = WAIT_CYCLE;
+    }
+    break;
+
+  case WAIT_CYCLE:
+    currentCycle++;
+    if (currentCycle < targetCount) {
+      currentState = SQUEEZING;
+    } else {
+      Serial.println("Finished.");
       setAllServosAngle(270);
-      if (now - stateStartTime >= 300) {
-          currentState = WAIT_CYCLE;
-      }
-      break;
-      
-    case WAIT_CYCLE:
-      currentCycle++;
-      if (currentCycle < targetCount) {
-          currentState = SQUEEZING; 
+      currentState = IDLE;
+
+      // --- 履歴保存 ---
+      struct tm timeinfo;
+      if (!getLocalTime(&timeinfo)) {
+        Serial.println("Failed to obtain time");
       } else {
-          Serial.println("Finished.");
-          setAllServosAngle(270);
-          currentState = IDLE;
-          
-          // --- 履歴保存 ---
-          struct tm timeinfo;
-          if(!getLocalTime(&timeinfo)){
-            Serial.println("Failed to obtain time");
-          } else {
-            char timeStringBuff[50];
-            strftime(timeStringBuff, sizeof(timeStringBuff), "%Y/%m/%d %H:%M", &timeinfo);
-            
-            HistoryItem newItem;
-            newItem.timeStr = String(timeStringBuff);
-            newItem.preset = currentSessionPreset;
-            newItem.strength = targetStrength;
-            newItem.count = targetCount;
-            
-            historyLog.push_back(newItem);
-            
-            // 最大保存件数 (20件)
-            if(historyLog.size() > 20) {
-                historyLog.erase(historyLog.begin());
-            }
-          }
-          // ----------------
+        char timeStringBuff[50];
+        strftime(timeStringBuff, sizeof(timeStringBuff), "%Y/%m/%d %H:%M",
+                 &timeinfo);
+
+        HistoryItem newItem;
+        newItem.timeStr = String(timeStringBuff);
+        newItem.preset = currentSessionPreset;
+        newItem.strength = targetStrength;
+        newItem.count = targetCount;
+
+        historyLog.push_back(newItem);
+
+        // 最大保存件数 (20件)
+        if (historyLog.size() > 20) {
+          historyLog.erase(historyLog.begin());
+        }
       }
-      break;
+      // ----------------
+    }
+    break;
   }
 }
