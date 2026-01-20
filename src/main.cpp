@@ -376,7 +376,7 @@ input:checked + .slider:before { transform: translateX(22px); }
       <div class="conn-dot" id="conn-dot"></div>
       <div style="display:flex; flex-direction:column;">
         <h1 style="line-height:1;">にぎにぎ</h1>
-        <span style="font-size:0.75rem; color:var(--text-sub); font-family:monospace;">v1.41.1</span>
+        <span style="font-size:0.75rem; color:var(--text-sub); font-family:monospace;">v1.42</span>
       </div>
     </div>
     <div class="header-actions">
@@ -458,7 +458,7 @@ input:checked + .slider:before { transform: translateX(22px); }
     <div class="setting-item">
       <span class="s-label">システム情報</span>
       <div style="margin-top:8px; font-size:0.9rem; color:var(--text-sub);">
-        <div>Version: <span style="font-family:monospace;">1.41.1</span></div>
+        <div>Version: <span style="font-family:monospace;">1.42</span></div>
         <div>Build: <span style="font-family:monospace;">{{BUILD_TIME}}</span></div>
         <div>IP: <span style="font-family:monospace;" id="ip-disp">...</span></div>
       </div>
