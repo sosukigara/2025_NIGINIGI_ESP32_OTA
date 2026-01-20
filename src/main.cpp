@@ -376,7 +376,7 @@ input:checked + .slider:before { transform: translateX(22px); }
       <div class="conn-dot" id="conn-dot"></div>
       <div style="display:flex; flex-direction:column;">
         <h1 style="line-height:1;">にぎにぎ</h1>
-        <span style="font-size:0.75rem; color:var(--text-sub); font-family:monospace;">v1.44</span>
+        <span style="font-size:0.75rem; color:var(--text-sub); font-family:monospace;">v1.45</span>
       </div>
     </div>
     <div class="header-actions">
@@ -458,7 +458,7 @@ input:checked + .slider:before { transform: translateX(22px); }
     <div class="setting-item">
       <span class="s-label">システム情報</span>
       <div style="margin-top:8px; font-size:0.9rem; color:var(--text-sub);">
-        <div>Version: <span style="font-family:monospace;">1.44</span></div>
+        <div>Version: <span style="font-family:monospace;">1.45</span></div>
         <div>Build: <span style="font-family:monospace;">{{BUILD_TIME}}</span></div>
         <div>IP: <span style="font-family:monospace;" id="ip-disp">...</span></div>
       </div>
@@ -482,16 +482,37 @@ input:checked + .slider:before { transform: translateX(22px); }
       </label>
     </div>
     
-    <!-- 位置補正スライダー -->
+    <!-- センサー距離表示 -->
+    <div class="setting-item">
+      <span class="s-label">センサー距離</span>
+      <div style="font-size:1.5rem; font-weight:700; color:var(--accent-purple); margin-top:8px;">
+        <span id="distance-disp">--</span> cm
+      </div>
+    </div>
+    
+    <!-- 個別サーボ位置補正 -->
     <div class="setting-item">
       <div class="s-header">
-        <span class="s-label">位置補正 (-90 ~ +90)</span>
-        <span class="s-val" id="offset-disp">0</span>
+        <span class="s-label">サーボ1 位置補正</span>
+        <span class="s-val" id="servo1-offset-disp">0</span>
       </div>
-      <input type="range" min="-90" max="90" value="0" step="1" id="inp-offset" oninput="updateAngleOffset(this.value)" style="width:100%;">
-      <div style="font-size:0.8rem; color:var(--text-sub); margin-top:4px;">
-        システム全体の角度を一括調整します
+      <input type="range" min="-90" max="90" value="0" step="1" id="inp-servo1-offset" oninput="updateServoOffset(1, this.value)" style="width:100%;">
+    </div>
+    
+    <div class="setting-item">
+      <div class="s-header">
+        <span class="s-label">サーボ2 位置補正</span>
+        <span class="s-val" id="servo2-offset-disp">0</span>
       </div>
+      <input type="range" min="-90" max="90" value="0" step="1" id="inp-servo2-offset" oninput="updateServoOffset(2, this.value)" style="width:100%;">
+    </div>
+    
+    <div class="setting-item">
+      <div class="s-header">
+        <span class="s-label">サーボ3 位置補正</span>
+        <span class="s-val" id="servo3-offset-disp">0</span>
+      </div>
+      <input type="range" min="-90" max="90" value="0" step="1" id="inp-servo3-offset" oninput="updateServoOffset(3, this.value)" style="width:100%;">
     </div>
     
     <div class="setting-item">
@@ -852,25 +873,41 @@ function setServo(servoNum, angle) {
   fetch(`/api/servo_individual?servo=${servoNum}&angle=${angle}`);
 }
 
-// 位置補正機能
-function updateAngleOffset(value) {
-  document.getElementById('offset-disp').innerText = value;
-  fetch(`/api/angle_offset?value=${value}`)
+// 個別サーボ位置補正
+function updateServoOffset(servoNum, value) {
+  document.getElementById(`servo${servoNum}-offset-disp`).innerText = value;
+  fetch(`/api/servo_offset?servo=${servoNum}&value=${value}`)
     .then(r => r.text())
-    .then(d => console.log('Angle Offset updated:', value));
+    .then(d => console.log(`Servo ${servoNum} offset:`, value));
 }
 
-// 初期化時に位置補正値を読み込む
-function fetchSettings() {
-  fetch('/api/angle_offset')
+// 初期化時に個別サーボオフセット読み込み
+function fetchServoOffsets() {
+  for (let i = 1; i <= 3; i++) {
+    fetch(`/api/servo_offset?servo=${i}`)
+      .then(r => r.json())
+      .then(data => {
+        const offset = data.offset || 0;
+        document.getElementById(`inp-servo${i}-offset`).value = offset;
+        document.getElementById(`servo${i}-offset-disp`).innerText = offset;
+      })
+      .catch(e => console.error(`Failed to fetch servo ${i} offset:`, e));
+  }
+}
+
+// センサー距離更新（1秒ごと）
+setInterval(() => {
+  fetch('/api/distance')
     .then(r => r.json())
     .then(data => {
-      const offset = data.angleOffset || 0;
-      document.getElementById('inp-offset').value = offset;
-      document.getElementById('offset-disp').innerText = offset;
+      document.getElementById('distance-disp').innerText = data.distance.toFixed(1);
     })
-    .catch(e => console.error('Failed to fetch angle offset:', e));
-}
+    .catch(e => console.error('Distance fetch error:', e));
+}, 1000);
+
+// 起動時に個別オフセット読み込み
+fetchServoOffsets();
+
 </script>
 </body>
 </html>
@@ -891,20 +928,16 @@ const int US_AT_0_DEG = 500;    // 0度 (閉/強)
 const int US_AT_270_DEG = 2500; // 270度 (開/弱)
 const unsigned long DETACH_DELAY_MS = 5000;
 
-// --- 位置補正（グローバル角度オフセット） ---
-int globalAngleOffset = 0; // -90 ~ +90の範囲で調整可能
+// --- 位置補正（個別サーボオフセット） ---
+int servo1Offset = 0; // -90 ~ +90の範囲で調整可能
+int servo2Offset = 0;
+int servo3Offset = 0;
 
-// オフセットを適用した角度を取得
-int getRelaxAngle() {
-  return 270 - globalAngleOffset; // リラックス位置（開いた状態）
-}
-
-int getSqueezeAngle(int strength) {
-  // strengthは0~100
-  // 0% → 270度, 100% → 180度
-  int baseAngle = 270 - (90 * strength / 100);
-  return baseAngle - globalAngleOffset;
-}
+// --- HC-SR04センサー ---
+const int TRIG_PIN = 32;
+const int ECHO_PIN = 33;
+float currentDistance = 0.0;
+unsigned long lastDistanceMeasure = 0;
 
 // --- 履歴構造体 ---
 struct HistoryItem {
@@ -953,13 +986,8 @@ int strengthToUs(int strength) {
   if (strength > 100)
     strength = 100;
   // 270度(開) → 90度(最大閉) の範囲に制限
-  int baseAngle = map(strength, 0, 100, 270, 90);
-  int targetAngle = baseAngle - globalAngleOffset; // オフセット適用
-  // 範囲制限
-  if (targetAngle < 0)
-    targetAngle = 0;
-  if (targetAngle > 270)
-    targetAngle = 270;
+  int targetAngle = map(strength, 0, 100, 270, 90);
+
   return map(targetAngle, 0, 270, US_AT_0_DEG, US_AT_270_DEG);
 }
 
@@ -979,6 +1007,18 @@ void detachAllServos() {
     servo2.detach();
   if (servo3.attached())
     servo3.detach();
+}
+
+float measureDistance() {
+  digitalWrite(TRIG_PIN, LOW);
+  delayMicroseconds(2);
+  digitalWrite(TRIG_PIN, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIG_PIN, LOW);
+
+  long duration = pulseIn(ECHO_PIN, HIGH, 30000);
+  float distance = duration * 0.034 / 2.0;
+  return distance;
 }
 
 // API: Start
@@ -1186,25 +1226,61 @@ void handleApiHistory() {
   server.send(200, "application/json", json);
 }
 
-void handleApiAngleOffset() {
-  if (server.hasArg("value")) {
-    // POST: 設定
+void handleApiServoOffset() {
+  if (server.hasArg("servo") && server.hasArg("value")) {
+    int servoNum = server.arg("servo").toInt();
     int value = server.arg("value").toInt();
-    if (value >= -90 && value <= 90) {
-      globalAngleOffset = value;
-      preferences.putInt("angleOffset", globalAngleOffset);
-      Serial.printf("[API] Angle Offset set to: %d\n", globalAngleOffset);
+    if (value >= -90 && value <= 90 && servoNum >= 1 && servoNum <= 3) {
+      int correctedAngle = 270 - value;
+      if (correctedAngle < 0)
+        correctedAngle = 0;
+      if (correctedAngle > 270)
+        correctedAngle = 270;
+      int us = map(correctedAngle, 0, 270, US_AT_0_DEG, US_AT_270_DEG);
+
+      if (servoNum == 1) {
+        servo1Offset = value;
+        preferences.putInt("servo1Off", value);
+        if (!servo1.attached())
+          servo1.attach(PIN_SERVO1, US_AT_0_DEG, US_AT_270_DEG);
+        servo1.writeMicroseconds(us);
+      } else if (servoNum == 2) {
+        servo2Offset = value;
+        preferences.putInt("servo2Off", value);
+        if (!servo2.attached())
+          servo2.attach(PIN_SERVO2, US_AT_0_DEG, US_AT_270_DEG);
+        servo2.writeMicroseconds(us);
+      } else if (servoNum == 3) {
+        servo3Offset = value;
+        preferences.putInt("servo3Off", value);
+        if (!servo3.attached())
+          servo3.attach(PIN_SERVO3, US_AT_0_DEG, US_AT_270_DEG);
+        servo3.writeMicroseconds(us);
+      }
+      Serial.printf("[API] Servo %d Offset: %d\n", servoNum, value);
       server.send(200, "text/plain", "OK");
     } else {
-      server.send(400, "text/plain", "範囲エラー: -90 ~ +90");
+      server.send(400, "text/plain", "Error: servo 1-3, value -90~+90");
     }
-  } else {
-    // GET: 取得
-    String json = "{";
-    json += "\"angleOffset\":" + String(globalAngleOffset);
-    json += "}";
+  } else if (server.hasArg("servo")) {
+    int servoNum = server.arg("servo").toInt();
+    int offset = 0;
+    if (servoNum == 1)
+      offset = servo1Offset;
+    else if (servoNum == 2)
+      offset = servo2Offset;
+    else if (servoNum == 3)
+      offset = servo3Offset;
+    String json = "{\"offset\":" + String(offset) + "}";
     server.send(200, "application/json", json);
+  } else {
+    server.send(400, "text/plain", "Missing servo parameter");
   }
+}
+
+void handleApiDistance() {
+  String json = "{\"distance\":" + String(currentDistance, 1) + "}";
+  server.send(200, "application/json", json);
 }
 
 void handleRoot() {
@@ -1220,8 +1296,13 @@ void setup() {
   holdTimeSec = preferences.getFloat("hold", 0.5);
   reachTimeSec = preferences.getFloat("reach", 0.5);
   pin13State = preferences.getInt("pin13", 0);
-  globalAngleOffset =
-      preferences.getInt("angleOffset", 0); // 位置補正を読み込み
+  servo1Offset = preferences.getInt("servo1Off", 0);
+  servo2Offset = preferences.getInt("servo2Off", 0);
+  servo3Offset = preferences.getInt("servo3Off", 0);
+
+  // HC-SR04センサー設定
+  pinMode(32, OUTPUT); // Trig
+  pinMode(33, INPUT);  // Echo
 
   pinMode(13, OUTPUT);
 
@@ -1237,7 +1318,7 @@ void setup() {
   servo3.setPeriodHertz(50);
 
   attachAllServos();
-  setAllServosAngle(getRelaxAngle()); // オフセット適用済みの位置で初期化
+  setAllServosAngle(270); // 初期位置
 
   // --- AP Mode Setup (Yakisoba-Shiro) ---
   WiFi.disconnect(true);
@@ -1263,7 +1344,8 @@ void setup() {
   server.on("/api/servo_all", handleApiServoAll);
   server.on("/api/servo_individual", handleApiServoIndividual);
   server.on("/api/history", handleApiHistory);
-  server.on("/api/angle_offset", handleApiAngleOffset); // 位置補正API
+  server.on("/api/servo_offset", handleApiServoOffset);
+  server.on("/api/distance", handleApiDistance);
 
   // Captive Portal Redirect
   server.onNotFound([]() { handleRoot(); });
@@ -1277,6 +1359,12 @@ void loop() {
   server.handleClient();
 
   unsigned long now = millis();
+
+  // HC-SR04センサー測定 (1秒ごと)
+  if (now - lastDistanceMeasure > 1000) {
+    currentDistance = measureDistance();
+    lastDistanceMeasure = now;
+  }
 
   if (currentState != lastState) {
     stateStartTime = now;
@@ -1296,7 +1384,7 @@ void loop() {
     break;
 
   case PREPARE_SQUEEZE:
-    setAllServosAngle(getRelaxAngle());
+    setAllServosAngle(270);
     if (now - stateStartTime > 300) {
       currentState = SQUEEZING;
     }
@@ -1328,7 +1416,7 @@ void loop() {
     break;
 
   case RELEASING:
-    setAllServosAngle(getRelaxAngle());
+    setAllServosAngle(270);
     if (now - stateStartTime >= 300) {
       currentState = WAIT_CYCLE;
     }
@@ -1341,7 +1429,7 @@ void loop() {
       currentState = SQUEEZING;
     } else {
       Serial.println("Finished.");
-      setAllServosAngle(getRelaxAngle());
+      setAllServosAngle(270);
       currentState = IDLE;
 
       // --- 履歴保存 ---
