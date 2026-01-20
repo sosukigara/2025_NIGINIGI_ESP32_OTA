@@ -65,7 +65,8 @@ body.offline::after {
 /* Header */
 .header { 
   margin-bottom: 12px; padding-top: 0; 
-  display: flex; justify-content: space-between; align-items: center;
+  display: flex; align-items: center; /* 縦位置揃え */
+  gap: 10px; flex-wrap: wrap;
 } 
 .header h1 {
   font-size: clamp(1.5rem, 5vw, 1.9rem); /* Responsive Font Size */
@@ -372,26 +373,29 @@ input:checked + .slider:before { transform: translateX(22px); }
 <!-- VIEW: MAIN -->
 <div id="view-main">
   <div class="header">
-    <div style="display:flex; align-items:center;">
+    <div style="display:flex; align-items:center; gap:8px;">
       <div class="conn-dot" id="conn-dot"></div>
-      <div style="display:flex; flex-direction:column;">
-        <div style="display:flex; align-items:center; gap:5px;">
-          <h1 style="line-height:1;">にぎにぎ</h1>
-          <label class="switch" style="transform:scale(0.6);">
-            <input type="checkbox" id="chk-sensor" onchange="toggleSensor(this)">
-            <span class="slider round"></span>
-          </label>
-        </div>
-        <span style="font-size:0.75rem; color:var(--text-sub); font-family:monospace;">v1.48</span>
-      </div>
+      <h1 style="line-height:1; margin:0;">にぎにぎ</h1>
+      <span style="font-size:0.75rem; color:var(--text-sub); font-family:monospace; padding-top:4px;">v1.48</span>
     </div>
+
+    <!-- Sensor Control -->
+    <div style="display:flex; align-items:center; gap:6px; margin-left:auto; margin-right:4px; background:#fff; padding:6px 12px; border-radius:30px; border:1px solid #eee;">
+      <span style="font-size:0.8rem; font-weight:bold; color:var(--text-sub);">センサー</span>
+      <label class="switch" style="transform:scale(0.7); margin:0;">
+        <input type="checkbox" id="chk-sensor" onchange="toggleSensor(this)">
+        <span class="slider round"></span>
+      </label>
+      <span id="sensor-lbl" style="font-size:0.8rem; font-weight:700; color:var(--text-sub); min-width:24px;">OFF</span>
+    </div>
+
     <div class="header-actions">
         <!-- History Icon -->
-        <button class="btn-icon" onclick="showHistory()" style="font-weight:700; padding:8px 12px; border:1px solid #ddd; border-radius:12px; background:#f5f5f5;">
+        <button class="btn-icon" onclick="showHistory()" style="font-weight:700; padding:8px 12px; border:1px solid #ddd; border-radius:12px; background:#f5f5f5; height:36px; display:flex; align-items:center;">
           履歴
         </button>
         <!-- Settings Icon -->
-        <button class="btn-icon" onclick="showSettings()" style="font-weight:700; padding:8px 12px; border:1px solid #ddd; border-radius:12px; background:#f5f5f5;">
+        <button class="btn-icon" onclick="showSettings()" style="font-weight:700; padding:8px 12px; border:1px solid #ddd; border-radius:12px; background:#f5f5f5; height:36px; display:flex; align-items:center;">
           設定
         </button>
     </div>
@@ -631,6 +635,7 @@ let sessionTotalDur = 0; // 初期設定修正
 let sessionStartTime = 0;
 let lastStartAction = 0; 
 let isStarting = false; // バグ修正用フラグ
+let debounceTimer = null; // レスポンス改善用
  
 
 // 完了画面用
@@ -647,7 +652,10 @@ function fetchSettings() {
       if(d.hold) document.getElementById('inp-hold').value = d.hold;
       if(d.reach) document.getElementById('inp-reach').value = d.reach;
       if(d.pin13 !== undefined) document.getElementById('chk-pin13').checked = (d.pin13 == 1);
-      if(d.sensor !== undefined) document.getElementById('chk-sensor').checked = (d.sensor == 1);
+      if(d.sensor !== undefined) {
+        document.getElementById('chk-sensor').checked = (d.sensor == 1);
+        updSensorLbl(d.sensor == 1);
+      }
       
       updTimeDisp();
       setTimeout(() => document.body.classList.add('ready'), 50);
@@ -661,7 +669,15 @@ fetchSettings();
 function saveHold(v) { fetch('/api/settings?hold=' + v).then(()=>updTimeDisp()); }
 function saveReach(v) { fetch('/api/settings?reach=' + v).then(()=>updTimeDisp()); }
 function togglePin13(el) { fetch('/api/pin13?val=' + (el.checked ? 1 : 0)); }
-function toggleSensor(el) { fetch('/api/sensor_mode?val=' + (el.checked ? 1 : 0)); }
+function toggleSensor(el) { 
+  updSensorLbl(el.checked);
+  fetch('/api/sensor_mode?val=' + (el.checked ? 1 : 0)); 
+}
+function updSensorLbl(isOn) {
+  const el = document.getElementById('sensor-lbl');
+  if(isOn) { el.innerText="ON"; el.style.color="var(--accent-blue)"; }
+  else { el.innerText="OFF"; el.style.color="var(--text-sub)"; }
+}
 
 function manualServo(pct) {
   document.getElementById('man-val').innerText = pct + "%";
@@ -723,8 +739,11 @@ function setPreset(mode, el) {
     }
   });
 
-  // Sync params for sensor manual start
-  fetch(`/api/settings?str=${s.value}&cnt=${count}`).catch(()=>{});
+  // Sync params with debounce
+  if (debounceTimer) clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => {
+    fetch(`/api/settings?str=${s.value}&cnt=${count}`).catch(()=>{});
+  }, 500);
 
   if(!isRunning) updTimeDisp();
 }
@@ -797,8 +816,9 @@ function start() {
   if(sessionTotalDur < 1) sessionTotalDur = 1;
 
   // プリセット名も送信
+  // プリセット名も送信
   fetch(`/api/start?str=${s}&cnt=${tgtCount}&preset=${encodeURIComponent(runPreset)}`)
-    .then(() => setTimeout(() => isStarting = false, 2000))
+    .then(() => setTimeout(() => isStarting = false, 5000)) // タイムアウト延長
     .catch(()=>{ isStarting = false; });
 }
 
@@ -829,16 +849,14 @@ function animateLoop() {
     if (pct > 100) pct = 100;
     document.getElementById('yt-fill').style.width = pct + "%";
     
-    // 残り時間が0になったら即座に完了処理
-    if (remaining <= 0 && !isManualStop) {
-      finishSession();
-    }
+    // 残り時間が0になってもここでは終了しない (サーバーの状態変化を待つ)
+    // if (remaining <= 0 && !isManualStop) { finishSession(); }
   }
   requestAnimationFrame(animateLoop);
 }
 requestAnimationFrame(animateLoop);
 
-// --- SYNC WITH SERVER ---
+// --- SYNC WITH SERVER (Adaptive Polling) ---
 function syncStatus() {
   fetch('/api/status')
     .then(r => r.json())
@@ -846,11 +864,14 @@ function syncStatus() {
       setOnline(true);
       
       if(d.state !== 'IDLE') {
+        isStarting = false; // 状態遷移を確認したらフラグ解除
         if (!isRunning) {
           isRunning = true;
           document.body.classList.add('running');
           sessionStartTime = Date.now() - (d.elap || 0);
         }
+        // サーバーからの所要時間で更新
+        if(d.dur && d.dur > 0) sessionTotalDur = d.dur;
 
         let txt = "動作中";
         if(d.state === 'PREPARE_SQUEEZE') txt = "準備中...";
@@ -875,9 +896,15 @@ function syncStatus() {
     })
     .catch(e => {
       setOnline(false);
+    })
+    .finally(() => {
+        // 動作中は高速ポーリング(200ms), 待機中は低速(1000ms)
+        const nextInterval = (isRunning || isStarting) ? 200 : 1000;
+        setTimeout(syncStatus, nextInterval);
     });
 }
-setInterval(syncStatus, 1000);
+// Start Polling
+syncStatus();
 
 function finishSession() {
   if (!isRunning) return; // 既に完了済みなら何もしない
