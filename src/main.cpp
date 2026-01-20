@@ -375,8 +375,14 @@ input:checked + .slider:before { transform: translateX(22px); }
     <div style="display:flex; align-items:center;">
       <div class="conn-dot" id="conn-dot"></div>
       <div style="display:flex; flex-direction:column;">
-        <h1 style="line-height:1;">にぎにぎ</h1>
-        <span style="font-size:0.75rem; color:var(--text-sub); font-family:monospace;">v1.47</span>
+        <div style="display:flex; align-items:center; gap:5px;">
+          <h1 style="line-height:1;">にぎにぎ</h1>
+          <label class="switch" style="transform:scale(0.6);">
+            <input type="checkbox" id="chk-sensor" onchange="toggleSensor(this)">
+            <span class="slider round"></span>
+          </label>
+        </div>
+        <span style="font-size:0.75rem; color:var(--text-sub); font-family:monospace;">v1.48</span>
       </div>
     </div>
     <div class="header-actions">
@@ -458,7 +464,7 @@ input:checked + .slider:before { transform: translateX(22px); }
     <div class="setting-item">
       <span class="s-label">システム情報</span>
       <div style="margin-top:8px; font-size:0.9rem; color:var(--text-sub);">
-        <div>Version: <span style="font-family:monospace;">1.47</span></div>
+        <div>Version: <span style="font-family:monospace;">1.48</span></div>
         <div>Build: <span style="font-family:monospace;">{{BUILD_TIME}}</span></div>
         <div>IP: <span style="font-family:monospace;" id="ip-disp">...</span></div>
       </div>
@@ -624,6 +630,8 @@ let isManualStop = false;
 let sessionTotalDur = 0; // 初期設定修正 
 let sessionStartTime = 0;
 let lastStartAction = 0; 
+let isStarting = false; // バグ修正用フラグ
+ 
 
 // 完了画面用
 let runPreset = "";
@@ -639,6 +647,7 @@ function fetchSettings() {
       if(d.hold) document.getElementById('inp-hold').value = d.hold;
       if(d.reach) document.getElementById('inp-reach').value = d.reach;
       if(d.pin13 !== undefined) document.getElementById('chk-pin13').checked = (d.pin13 == 1);
+      if(d.sensor !== undefined) document.getElementById('chk-sensor').checked = (d.sensor == 1);
       
       updTimeDisp();
       setTimeout(() => document.body.classList.add('ready'), 50);
@@ -652,6 +661,7 @@ fetchSettings();
 function saveHold(v) { fetch('/api/settings?hold=' + v).then(()=>updTimeDisp()); }
 function saveReach(v) { fetch('/api/settings?reach=' + v).then(()=>updTimeDisp()); }
 function togglePin13(el) { fetch('/api/pin13?val=' + (el.checked ? 1 : 0)); }
+function toggleSensor(el) { fetch('/api/sensor_mode?val=' + (el.checked ? 1 : 0)); }
 
 function manualServo(pct) {
   document.getElementById('man-val').innerText = pct + "%";
@@ -713,6 +723,9 @@ function setPreset(mode, el) {
     }
   });
 
+  // Sync params for sensor manual start
+  fetch(`/api/settings?str=${s.value}&cnt=${count}`).catch(()=>{});
+
   if(!isRunning) updTimeDisp();
 }
 
@@ -767,6 +780,7 @@ function start() {
   
   isManualStop = false;
   isRunning = true;
+  isStarting = true; // Flag to prevent race condition
   document.body.classList.add('running');
   document.getElementById('status-badge').innerText = "準備中..."; 
   
@@ -783,7 +797,9 @@ function start() {
   if(sessionTotalDur < 1) sessionTotalDur = 1;
 
   // プリセット名も送信
-  fetch(`/api/start?str=${s}&cnt=${tgtCount}&preset=${encodeURIComponent(runPreset)}`).catch(()=>{});
+  fetch(`/api/start?str=${s}&cnt=${tgtCount}&preset=${encodeURIComponent(runPreset)}`)
+    .then(() => setTimeout(() => isStarting = false, 2000))
+    .catch(()=>{ isStarting = false; });
 }
 
 function stop() { 
@@ -851,7 +867,7 @@ function syncStatus() {
 
       } else {
         // IDLEに戻った = 動作完了
-        if (isRunning) {
+        if (isRunning && !isStarting) {
           finishSession();
         }
       }
@@ -1007,6 +1023,8 @@ unsigned long lastDistanceMeasure = 0;
 
 // 前方宣言
 void setServoAngleSafe(int servoNum, int targetAngle);
+
+bool sensorEnabled = false;
 
 // --- 履歴構造体 ---
 struct HistoryItem {
@@ -1178,11 +1196,17 @@ void handleApiSettings() {
     reachTimeSec = server.arg("reach").toFloat();
     preferences.putFloat("reach", reachTimeSec);
   }
+  // Sync params for sensor auto-start
+  if (server.hasArg("str"))
+    targetStrength = server.arg("str").toInt();
+  if (server.hasArg("cnt"))
+    targetCount = server.arg("cnt").toInt();
 
   String json = "{";
   json += "\"hold\":" + String(holdTimeSec) + ",";
   json += "\"reach\":" + String(reachTimeSec) + ",";
-  json += "\"pin13\":" + String(pin13State);
+  json += "\"pin13\":" + String(pin13State) + ",";
+  json += "\"sensor\":" + String(sensorEnabled);
   json += "}";
   server.send(200, "application/json", json);
 }
@@ -1428,6 +1452,15 @@ void handleApiServoLimit() {
   }
 }
 
+void handleApiSensorMode() {
+  if (server.hasArg("val")) {
+    sensorEnabled = (server.arg("val").toInt() == 1);
+    preferences.putBool("sensor", sensorEnabled);
+    Serial.printf("[API] Sensor Mode: %s\n", sensorEnabled ? "ON" : "OFF");
+  }
+  server.send(200, "text/plain", "OK");
+}
+
 void handleApiDistance() {
   String json = "{\"distance\":" + String(currentDistance, 1) + "}";
   server.send(200, "application/json", json);
@@ -1449,6 +1482,8 @@ void setup() {
   servo1Offset = preferences.getInt("servo1Off", 0);
   servo2Offset = preferences.getInt("servo2Off", 0);
   servo3Offset = preferences.getInt("servo3Off", 0);
+
+  sensorEnabled = preferences.getBool("sensor", false);
 
   minAngle1 = preferences.getInt("minAng1", 0);
   maxAngle1 = preferences.getInt("maxAng1", 270);
@@ -1503,6 +1538,7 @@ void setup() {
   server.on("/api/history", handleApiHistory);
   server.on("/api/servo_offset", handleApiServoOffset);
   server.on("/api/servo_limit", handleApiServoLimit);
+  server.on("/api/sensor_mode", handleApiSensorMode);
   server.on("/api/distance", handleApiDistance);
 
   // Captive Portal Redirect
@@ -1522,6 +1558,15 @@ void loop() {
   if (now - lastDistanceMeasure > 1000) {
     currentDistance = measureDistance();
     lastDistanceMeasure = now;
+
+    // Sensor Trigger
+    if (sensorEnabled && currentState == IDLE && currentDistance < 10.0 &&
+        currentDistance > 0.1) {
+      Serial.printf("Sensor Trigger: %.1f cm -> START\n", currentDistance);
+      currentCycle = 0;
+      sessionStartTime = millis();
+      currentState = PREPARE_SQUEEZE;
+    }
   }
 
   if (currentState != lastState) {
