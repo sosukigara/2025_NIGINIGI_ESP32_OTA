@@ -376,7 +376,7 @@ input:checked + .slider:before { transform: translateX(22px); }
       <div class="conn-dot" id="conn-dot"></div>
       <div style="display:flex; flex-direction:column;">
         <h1 style="line-height:1;">にぎにぎ</h1>
-        <span style="font-size:0.75rem; color:var(--text-sub); font-family:monospace;">v1.45</span>
+        <span style="font-size:0.75rem; color:var(--text-sub); font-family:monospace;">v1.47</span>
       </div>
     </div>
     <div class="header-actions">
@@ -458,7 +458,7 @@ input:checked + .slider:before { transform: translateX(22px); }
     <div class="setting-item">
       <span class="s-label">システム情報</span>
       <div style="margin-top:8px; font-size:0.9rem; color:var(--text-sub);">
-        <div>Version: <span style="font-family:monospace;">1.45</span></div>
+        <div>Version: <span style="font-family:monospace;">1.47</span></div>
         <div>Build: <span style="font-family:monospace;">{{BUILD_TIME}}</span></div>
         <div>IP: <span style="font-family:monospace;" id="ip-disp">...</span></div>
       </div>
@@ -513,6 +513,35 @@ input:checked + .slider:before { transform: translateX(22px); }
         <span class="s-val" id="servo3-offset-disp">0</span>
       </div>
       <input type="range" min="-90" max="90" value="0" step="1" id="inp-servo3-offset" oninput="updateServoOffset(3, this.value)" style="width:100%;">
+    </div>
+
+    <!-- 角度制限 -->
+    <div class="setting-item">
+      <div class="s-header">
+        <span class="s-label">角度制限 (Min / Max)</span>
+      </div>
+      
+      <div style="margin-top:10px;">
+        <div style="font-size:0.9rem; margin-bottom:4px;">サーボ1</div>
+        <div style="display:flex; gap:10px;">
+          <input type="number" id="min-angle-1" min="0" max="270" step="1" style="width:100%; padding:8px; border-radius:8px; border:1px solid #ddd; text-align:center;" onchange="updateServoLimit(1)">
+          <input type="number" id="max-angle-1" min="0" max="270" step="1" style="width:100%; padding:8px; border-radius:8px; border:1px solid #ddd; text-align:center;" onchange="updateServoLimit(1)">
+        </div>
+      </div>
+      <div style="margin-top:10px;">
+        <div style="font-size:0.9rem; margin-bottom:4px;">サーボ2</div>
+        <div style="display:flex; gap:10px;">
+          <input type="number" id="min-angle-2" min="0" max="270" step="1" style="width:100%; padding:8px; border-radius:8px; border:1px solid #ddd; text-align:center;" onchange="updateServoLimit(2)">
+          <input type="number" id="max-angle-2" min="0" max="270" step="1" style="width:100%; padding:8px; border-radius:8px; border:1px solid #ddd; text-align:center;" onchange="updateServoLimit(2)">
+        </div>
+      </div>
+      <div style="margin-top:10px;">
+        <div style="font-size:0.9rem; margin-bottom:4px;">サーボ3</div>
+        <div style="display:flex; gap:10px;">
+          <input type="number" id="min-angle-3" min="0" max="270" step="1" style="width:100%; padding:8px; border-radius:8px; border:1px solid #ddd; text-align:center;" onchange="updateServoLimit(3)">
+          <input type="number" id="max-angle-3" min="0" max="270" step="1" style="width:100%; padding:8px; border-radius:8px; border:1px solid #ddd; text-align:center;" onchange="updateServoLimit(3)">
+        </div>
+      </div>
     </div>
     
     <div class="setting-item">
@@ -907,6 +936,35 @@ setInterval(() => {
 
 // 起動時に個別オフセット読み込み
 fetchServoOffsets();
+fetchServoLimits();
+
+// 角度制限更新
+function updateServoLimit(servoNum) {
+  const minVal = document.getElementById(`min-angle-${servoNum}`).value;
+  const maxVal = document.getElementById(`max-angle-${servoNum}`).value;
+  
+  if(parseInt(minVal) > parseInt(maxVal)) {
+    // 最小値が最大値を超えないように
+    return;
+  }
+
+  fetch(`/api/servo_limit?servo=${servoNum}&min=${minVal}&max=${maxVal}`)
+    .then(r => r.text())
+    .then(d => console.log(`Servo ${servoNum} limit updated: ${minVal}-${maxVal}`));
+}
+
+// 角度制限読み込み
+function fetchServoLimits() {
+  for(let i=1; i<=3; i++) {
+    fetch(`/api/servo_limit?servo=${i}`)
+      .then(r => r.json())
+      .then(d => {
+        document.getElementById(`min-angle-${i}`).value = d.min;
+        document.getElementById(`max-angle-${i}`).value = d.max;
+      });
+  }
+}
+
 
 </script>
 </body>
@@ -933,11 +991,22 @@ int servo1Offset = 0; // -90 ~ +90の範囲で調整可能
 int servo2Offset = 0;
 int servo3Offset = 0;
 
+// --- 角度制限 (最小/最大) ---
+int minAngle1 = 0;
+int maxAngle1 = 270;
+int minAngle2 = 0;
+int maxAngle2 = 270;
+int minAngle3 = 0;
+int maxAngle3 = 270;
+
 // --- HC-SR04センサー ---
 const int TRIG_PIN = 32;
 const int ECHO_PIN = 33;
 float currentDistance = 0.0;
 unsigned long lastDistanceMeasure = 0;
+
+// 前方宣言
+void setServoAngleSafe(int servoNum, int targetAngle);
 
 // --- 履歴構造体 ---
 struct HistoryItem {
@@ -965,30 +1034,19 @@ int targetCount = 3;
 int currentCycle = 0;
 int pin13State = 0;
 
-void setAllServosUs(int us) {
-  servo1.writeMicroseconds(us);
-  servo2.writeMicroseconds(us);
-  servo3.writeMicroseconds(us);
-}
-
 void setAllServosAngle(int angle) {
-  if (angle < 0)
-    angle = 0;
-  if (angle > 270)
-    angle = 270;
-  int us = map(angle, 0, 270, US_AT_0_DEG, US_AT_270_DEG);
-  setAllServosUs(us);
+  setServoAngleSafe(1, angle);
+  setServoAngleSafe(2, angle);
+  setServoAngleSafe(3, angle);
 }
 
-int strengthToUs(int strength) {
+int strengthToAngle(int strength) {
   if (strength < 0)
     strength = 0;
   if (strength > 100)
     strength = 100;
   // 270度(開) → 90度(最大閉) の範囲に制限
-  int targetAngle = map(strength, 0, 100, 270, 90);
-
-  return map(targetAngle, 0, 270, US_AT_0_DEG, US_AT_270_DEG);
+  return map(strength, 0, 100, 270, 90);
 }
 
 void attachAllServos() {
@@ -1007,6 +1065,62 @@ void detachAllServos() {
     servo2.detach();
   if (servo3.attached())
     servo3.detach();
+}
+
+// 安全なサーボ制御関数 (制限とオフセット適用)
+void setServoAngleSafe(int servoNum, int targetAngle) {
+  int minA = 0;
+  int maxA = 270;
+  int offset = 0;
+
+  if (servoNum == 1) {
+    minA = minAngle1;
+    maxA = maxAngle1;
+    offset = servo1Offset;
+  } else if (servoNum == 2) {
+    minA = minAngle2;
+    maxA = maxAngle2;
+    offset = servo2Offset;
+  } else if (servoNum == 3) {
+    minA = minAngle3;
+    maxA = maxAngle3;
+    offset = servo3Offset;
+  } else {
+    return; // Invalid servo number
+  }
+
+  // 1. 角度制限 (最優先)
+  if (targetAngle < minA)
+    targetAngle = minA;
+  if (targetAngle > maxA)
+    targetAngle = maxA;
+
+  // 2. オフセット適用
+  // 補正: 目標角度 - オフセット
+  int correctedAngle = targetAngle - offset;
+
+  // 3. 物理限界リミット
+  if (correctedAngle < 0)
+    correctedAngle = 0;
+  if (correctedAngle > 270)
+    correctedAngle = 270;
+
+  // 4. 出力
+  int us = map(correctedAngle, 0, 270, US_AT_0_DEG, US_AT_270_DEG);
+
+  if (servoNum == 1) {
+    if (!servo1.attached())
+      servo1.attach(PIN_SERVO1, US_AT_0_DEG, US_AT_270_DEG);
+    servo1.writeMicroseconds(us);
+  } else if (servoNum == 2) {
+    if (!servo2.attached())
+      servo2.attach(PIN_SERVO2, US_AT_0_DEG, US_AT_270_DEG);
+    servo2.writeMicroseconds(us);
+  } else if (servoNum == 3) {
+    if (!servo3.attached())
+      servo3.attach(PIN_SERVO3, US_AT_0_DEG, US_AT_270_DEG);
+    servo3.writeMicroseconds(us);
+  }
 }
 
 float measureDistance() {
@@ -1127,15 +1241,15 @@ void handleApiManual() {
     if (pct > 100)
       pct = 100;
 
-    int targetUs = strengthToUs(pct);
+    int targetAngle = strengthToAngle(pct);
 
     currentState = IDLE;
     stateStartTime =
         millis(); // Reset idle timer so it doesn't detach immediately
     attachAllServos();
-    setAllServosUs(targetUs);
+    setAllServosAngle(targetAngle);
 
-    Serial.printf("[API] Manual: %d%% -> %dus\n", pct, targetUs);
+    Serial.printf("[API] Manual: %d%% -> %d deg\n", pct, targetAngle);
   }
   server.send(200, "text/plain", "OK");
 }
@@ -1181,29 +1295,15 @@ void handleApiServoIndividual() {
   if (server.hasArg("servo") && server.hasArg("angle")) {
     int servoNum = server.arg("servo").toInt();
     int angle = server.arg("angle").toInt();
-    if (angle < 90)
-      angle = 90;
-    if (angle > 270)
-      angle = 270;
-
-    int us = map(angle, 0, 270, US_AT_0_DEG, US_AT_270_DEG);
+    // 範囲チェックは setServoAngleSafe
+    // 内で行われるため簡易チェックのみ、または省略可だが一応残す if (angle <
+    // 90) angle = 90; //
+    // 制限は個別のmin/maxに委ねるべきか？安全のためsetServoAngleSafeにお任せする
 
     currentState = IDLE;
     stateStartTime = millis();
 
-    if (servoNum == 1) {
-      if (!servo1.attached())
-        servo1.attach(PIN_SERVO1, US_AT_0_DEG, US_AT_270_DEG);
-      servo1.writeMicroseconds(us);
-    } else if (servoNum == 2) {
-      if (!servo2.attached())
-        servo2.attach(PIN_SERVO2, US_AT_0_DEG, US_AT_270_DEG);
-      servo2.writeMicroseconds(us);
-    } else if (servoNum == 3) {
-      if (!servo3.attached())
-        servo3.attach(PIN_SERVO3, US_AT_0_DEG, US_AT_270_DEG);
-      servo3.writeMicroseconds(us);
-    }
+    setServoAngleSafe(servoNum, angle);
 
     Serial.printf("[API] Servo %d: %d degrees\n", servoNum, angle);
   }
@@ -1278,6 +1378,56 @@ void handleApiServoOffset() {
   }
 }
 
+void handleApiServoLimit() {
+  if (server.hasArg("servo")) {
+    int servoNum = server.arg("servo").toInt();
+    if (server.hasArg("min") && server.hasArg("max")) {
+      int minV = server.arg("min").toInt();
+      int maxV = server.arg("max").toInt();
+      if (minV < 0)
+        minV = 0;
+      if (maxV > 270)
+        maxV = 270;
+
+      if (servoNum == 1) {
+        minAngle1 = minV;
+        maxAngle1 = maxV;
+        preferences.putInt("minAng1", minV);
+        preferences.putInt("maxAng1", maxV);
+      } else if (servoNum == 2) {
+        minAngle2 = minV;
+        maxAngle2 = maxV;
+        preferences.putInt("minAng2", minV);
+        preferences.putInt("maxAng2", maxV);
+      } else if (servoNum == 3) {
+        minAngle3 = minV;
+        maxAngle3 = maxV;
+        preferences.putInt("minAng3", minV);
+        preferences.putInt("maxAng3", maxV);
+      }
+      server.send(200, "text/plain", "OK");
+    } else {
+      int minV = 0, maxV = 270;
+      if (servoNum == 1) {
+        minV = minAngle1;
+        maxV = maxAngle1;
+      } else if (servoNum == 2) {
+        minV = minAngle2;
+        maxV = maxAngle2;
+      } else if (servoNum == 3) {
+        minV = minAngle3;
+        maxV = maxAngle3;
+      }
+
+      String json =
+          "{\"min\":" + String(minV) + ",\"max\":" + String(maxV) + "}";
+      server.send(200, "application/json", json);
+    }
+  } else {
+    server.send(400, "text/plain", "Missing servo param");
+  }
+}
+
 void handleApiDistance() {
   String json = "{\"distance\":" + String(currentDistance, 1) + "}";
   server.send(200, "application/json", json);
@@ -1299,6 +1449,13 @@ void setup() {
   servo1Offset = preferences.getInt("servo1Off", 0);
   servo2Offset = preferences.getInt("servo2Off", 0);
   servo3Offset = preferences.getInt("servo3Off", 0);
+
+  minAngle1 = preferences.getInt("minAng1", 0);
+  maxAngle1 = preferences.getInt("maxAng1", 270);
+  minAngle2 = preferences.getInt("minAng2", 0);
+  maxAngle2 = preferences.getInt("maxAng2", 270);
+  minAngle3 = preferences.getInt("minAng3", 0);
+  maxAngle3 = preferences.getInt("maxAng3", 270);
 
   // HC-SR04センサー設定
   pinMode(32, OUTPUT); // Trig
@@ -1345,6 +1502,7 @@ void setup() {
   server.on("/api/servo_individual", handleApiServoIndividual);
   server.on("/api/history", handleApiHistory);
   server.on("/api/servo_offset", handleApiServoOffset);
+  server.on("/api/servo_limit", handleApiServoLimit);
   server.on("/api/distance", handleApiDistance);
 
   // Captive Portal Redirect
@@ -1394,16 +1552,16 @@ void loop() {
   case SQUEEZING: {
     unsigned long duration = reachTimeSec * 1000;
     unsigned long elapsed = now - stateStartTime;
-    int startUs = US_AT_270_DEG;
-    int targetUs = strengthToUs(targetStrength);
+    int startAngle = 270;
+    int targetAngle = strengthToAngle(targetStrength);
 
     if (elapsed >= duration) {
-      setAllServosUs(targetUs);
+      setAllServosAngle(targetAngle);
       currentState = HOLDING;
     } else {
       float progress = (float)elapsed / (float)duration;
-      int currentUs = startUs + (targetUs - startUs) * progress;
-      setAllServosUs(currentUs);
+      int currentAngle = startAngle + (targetAngle - startAngle) * progress;
+      setAllServosAngle(currentAngle);
     }
     yield(); // Watchdog reset
   } break;
