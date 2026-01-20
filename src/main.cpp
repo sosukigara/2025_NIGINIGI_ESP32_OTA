@@ -118,7 +118,7 @@ body.offline::after {
   display: flex; flex-direction: column;
   position: relative;
   padding-bottom: 2vh;
-  flex-grow: 2; /* Occupy more space */
+  flex-grow: 1; /* Reduced from 2 to 1 to reduce vertical size */
   justify-content: center;
 }
 .monitor-row { 
@@ -241,6 +241,7 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); backgrou
 /* Bottom Bar */
 .bottom-bar {
   margin-top: auto; /* Push to bottom */
+  margin-bottom: 10px; /* Add extra spacing below button */
   display: flex; gap: 12px;
   filter: drop-shadow(0 10px 20px rgba(0,0,0,0.1));
   flex-shrink: 0; /* Keep size */
@@ -420,7 +421,7 @@ input:checked + .slider:before { transform: translateX(22px); }
     <div style="display:flex; align-items:center; gap:8px;">
       <div class="conn-dot" id="conn-dot"></div>
       <h1 style="line-height:1; margin:0;">にぎにぎ</h1>
-      <span style="font-size:0.75rem; color:var(--text-sub); font-family:monospace; padding-top:4px;">v1.56</span>
+      <span style="font-size:0.75rem; color:var(--text-sub); font-family:monospace; padding-top:4px;">v1.57</span>
     </div>
 
     <!-- Sensor Control -->
@@ -512,7 +513,7 @@ input:checked + .slider:before { transform: translateX(22px); }
     <div class="setting-item">
       <span class="s-label">システム情報</span>
       <div style="margin-top:8px; font-size:0.9rem; color:var(--text-sub);">
-        <div>Version: <span style="font-family:monospace;">1.56</span></div>
+        <div>Version: <span style="font-family:monospace;">1.57</span></div>
         <div>Build: <span style="font-family:monospace;">{{BUILD_TIME}}</span></div>
         <div>IP: <span style="font-family:monospace;" id="ip-disp">...</span></div>
       </div>
