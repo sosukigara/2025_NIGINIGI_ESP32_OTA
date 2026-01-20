@@ -136,7 +136,7 @@ body.offline::after {
 
 /* Time Display */
 .time-big {
-  font-size: clamp(3.0rem, 15vw, 4.5rem); /* Reduced size */
+  font-size: clamp(2.5rem, 13vw, 4.0rem); /* Further reduced size (9/10) */
   font-weight: 800; 
   font-variant-numeric: tabular-nums; 
   letter-spacing: -2px; line-height: 1;
@@ -350,6 +350,50 @@ input:checked + .slider:before { transform: translateX(22px); }
   from { opacity: 0; }
   to { opacity: 1; }
 }
+@keyframes scaleIn {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* Custom Modal & Toast */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.6); backdrop-filter: blur(2px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 3000; opacity: 0; pointer-events: none; transition: 0.2s;
+}
+.modal-overlay.active { opacity: 1; pointer-events: auto; }
+.modal-box {
+  background: var(--card-bg); width: 85%; max-width: 320px;
+  border-radius: 20px; padding: 24px; text-align: center;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  transform: scale(0.95); transition: 0.2s;
+}
+.modal-overlay.active .modal-box { transform: scale(1); }
+.modal-title { font-weight: 800; font-size: 1.1rem; margin-bottom: 12px; }
+.modal-input {
+  width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 12px;
+  font-size: 1rem; margin-bottom: 20px; box-sizing: border-box;
+}
+.modal-actions { display: flex; gap: 10px; justify-content: center; }
+.modal-btn {
+  flex: 1; padding: 12px; border-radius: 12px; border: none;
+  font-weight: 700; cursor: pointer; font-size: 0.95rem;
+}
+.btn-cancel { background: #f2f2f7; color: var(--text-main); }
+.btn-ok { background: var(--accent-blue); color: white; }
+.btn-danger { background: var(--danger); color: white; }
+
+.toast {
+  position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(20px);
+  background: rgba(0,0,0,0.85); color: white; padding: 10px 20px;
+  border-radius: 30px; font-weight: 600; font-size: 0.9rem;
+  opacity: 0; transition: 0.3s; pointer-events: none; z-index: 4000;
+  white-space: nowrap; box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  to { opacity: 1; }
+}
 
 @keyframes scaleIn {
   from { transform: scale(0.9); opacity: 1; }
@@ -376,7 +420,7 @@ input:checked + .slider:before { transform: translateX(22px); }
     <div style="display:flex; align-items:center; gap:8px;">
       <div class="conn-dot" id="conn-dot"></div>
       <h1 style="line-height:1; margin:0;">にぎにぎ</h1>
-      <span style="font-size:0.75rem; color:var(--text-sub); font-family:monospace; padding-top:4px;">v1.55</span>
+      <span style="font-size:0.75rem; color:var(--text-sub); font-family:monospace; padding-top:4px;">v1.56</span>
     </div>
 
     <!-- Sensor Control -->
@@ -468,7 +512,7 @@ input:checked + .slider:before { transform: translateX(22px); }
     <div class="setting-item">
       <span class="s-label">システム情報</span>
       <div style="margin-top:8px; font-size:0.9rem; color:var(--text-sub);">
-        <div>Version: <span style="font-family:monospace;">1.55</span></div>
+        <div>Version: <span style="font-family:monospace;">1.56</span></div>
         <div>Build: <span style="font-family:monospace;">{{BUILD_TIME}}</span></div>
         <div>IP: <span style="font-family:monospace;" id="ip-disp">...</span></div>
       </div>
@@ -642,18 +686,85 @@ input:checked + .slider:before { transform: translateX(22px); }
   </div>
 </div>
 
-<script>
-let tgtCount = 3;
-let lastStatus = "IDLE";
-let currentPresetName = "ふつう"; // 初期値
+<!-- Custom Modals -->
+<div class="modal-overlay" id="prompt-modal">
+  <div class="modal-box">
+    <div class="modal-title" id="prompt-msg">入力</div>
+    <input type="text" class="modal-input" id="prompt-input" autocomplete="off">
+    <div class="modal-actions">
+      <button class="modal-btn btn-cancel" onclick="closePrompt(null)">キャンセル</button>
+      <button class="modal-btn btn-ok" onclick="closePrompt(true)">OK</button>
+    </div>
+  </div>
+</div>
 
-// Animation Variables
+<div class="modal-overlay" id="confirm-modal">
+  <div class="modal-box">
+    <div class="modal-title" id="confirm-msg">確認</div>
+    <div class="modal-actions">
+      <button class="modal-btn btn-cancel" onclick="closeConfirm(false)">いいえ</button>
+      <button class="modal-btn btn-ok" id="confirm-ok-btn" onclick="closeConfirm(true)">はい</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">保存しました</div>
+
+<script>
+// --- Custom Modal Logic ---
+let promptResolve = null;
+function showPrompt(msg, defaultVal = "") {
+  return new Promise(resolve => {
+    document.getElementById('prompt-msg').innerText = msg;
+    const inp = document.getElementById('prompt-input');
+    inp.value = defaultVal;
+    promptResolve = resolve;
+    document.getElementById('prompt-modal').classList.add('active');
+    setTimeout(() => inp.focus(), 100);
+  });
+}
+function closePrompt(isOk) {
+  document.getElementById('prompt-modal').classList.remove('active');
+  const val = document.getElementById('prompt-input').value;
+  if (promptResolve) promptResolve(isOk ? val : null);
+  promptResolve = null;
+}
+
+let confirmResolve = null;
+function showConfirm(msg, isDanger = false) {
+  return new Promise(resolve => {
+    document.getElementById('confirm-msg').innerText = msg;
+    const btn = document.getElementById('confirm-ok-btn');
+    if(isDanger) { btn.className = "modal-btn btn-danger"; } 
+    else { btn.className = "modal-btn btn-ok"; }
+    
+    confirmResolve = resolve;
+    document.getElementById('confirm-modal').classList.add('active');
+  });
+}
+function closeConfirm(isOk) {
+  document.getElementById('confirm-modal').classList.remove('active');
+  if (confirmResolve) confirmResolve(isOk);
+  confirmResolve = null;
+}
+
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.innerText = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+// Global Vars
 let isRunning = false;
-let isManualStop = false; 
-let sessionTotalDur = 0; // 初期設定修正 
+let isStarting = false;
 let sessionStartTime = 0;
+let sessionTotalDur = 0; 
+let isManualStop = false;
+let tgtCount = 3;
+let currentPresetName = "Custom";
+let lastStatus = "IDLE";
 let lastStartAction = 0; 
-let isStarting = false; // バグ修正用フラグ
 let debounceTimer = null; // レスポンス改善用
  
 
@@ -1008,23 +1119,25 @@ function fetchServoOffsets() {
 
 // --- My Presets (LocalStorage) ---
 function saveMyPreset() {
-  const name = prompt("設定名を入力してください", "設定 " + (new Date().toLocaleString()));
-  if(!name) return;
-  
-  const preset = {
-    name: name,
-    hold: document.getElementById('inp-hold').value,
-    reach: document.getElementById('inp-reach').value,
-    str: document.getElementById('inp-str').value,
-    count: tgtCount,
-    sth: document.getElementById('inp-sth').value,
-    // Add other params if needed
-  };
-  
-  const list = JSON.parse(localStorage.getItem('onigiri_presets') || "[]");
-  list.push(preset);
-  localStorage.setItem('onigiri_presets', JSON.stringify(list));
-  renderMyPresets();
+  const defaultName = "設定 " + (new Date().toLocaleString());
+  showPrompt("設定名を入力してください", defaultName).then(name => {
+    if(!name) return; // Cancelled
+    
+    const preset = {
+      name: name,
+      hold: document.getElementById('inp-hold').value,
+      reach: document.getElementById('inp-reach').value,
+      str: document.getElementById('inp-str').value,
+      count: tgtCount,
+      sth: document.getElementById('inp-sth').value
+    };
+    
+    const list = JSON.parse(localStorage.getItem('onigiri_presets') || "[]");
+    list.push(preset);
+    localStorage.setItem('onigiri_presets', JSON.stringify(list));
+    renderMyPresets();
+    showToast("保存しました");
+  });
 }
 
 function loadMyPreset(idx) {
@@ -1032,7 +1145,9 @@ function loadMyPreset(idx) {
   const p = list[idx];
   if(!p) return;
   
-  if(confirm(`「${p.name}」を読み込みますか？`)) {
+  showConfirm(`「${p.name}」を読み込みますか？`).then(ok => {
+    if(!ok) return;
+
     document.getElementById('inp-hold').value = p.hold;
     document.getElementById('inp-reach').value = p.reach;
     document.getElementById('inp-str').value = p.str;
@@ -1050,21 +1165,24 @@ function loadMyPreset(idx) {
     // Set Count
     tgtCount = p.count;
     document.querySelectorAll('.chk-btn').forEach(b => {
-      if(parseInt(b.innerText) == p.count) b.classList.add('active');
-      else b.classList.remove('active');
+        if(parseInt(b.innerText) == p.count) b.classList.add('active');
+        else b.classList.remove('active');
     });
     
     updTimeDisp();
-    alert("読み込みました");
-  }
+    showToast("読み込みました");
+  });
 }
 
 function deleteMyPreset(idx) {
-  if(!confirm("削除しますか？")) return;
-  const list = JSON.parse(localStorage.getItem('onigiri_presets') || "[]");
-  list.splice(idx, 1);
-  localStorage.setItem('onigiri_presets', JSON.stringify(list));
-  renderMyPresets();
+  showConfirm("本当に削除しますか？", true).then(ok => {
+    if(!ok) return;
+    const list = JSON.parse(localStorage.getItem('onigiri_presets') || "[]");
+    list.splice(idx, 1);
+    localStorage.setItem('onigiri_presets', JSON.stringify(list));
+    renderMyPresets();
+    showToast("削除しました");
+  });
 }
 
 function renderMyPresets() {
