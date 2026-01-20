@@ -500,6 +500,14 @@ input:checked + .slider:before { transform: translateX(22px); }
       </div>
     </div>
     
+    <div class="setting-item">
+      <div class="s-header">
+        <span class="s-label">センサーしきい値 (cm)</span>
+        <span class="s-val" id="sth-disp">10.0</span>
+      </div>
+      <input type="range" min="1" max="50" step="0.5" value="10" id="inp-sth" oninput="saveSth(this.value)" style="width:100%;">
+    </div>
+    
     <!-- 個別サーボ位置補正 -->
     <div class="setting-item">
       <div class="s-header">
@@ -656,6 +664,10 @@ function fetchSettings() {
         document.getElementById('chk-sensor').checked = (d.sensor == 1);
         updSensorLbl(d.sensor == 1);
       }
+      if(d.sth) {
+        document.getElementById('inp-sth').value = d.sth;
+        document.getElementById('sth-disp').innerText = d.sth;
+      }
       
       updTimeDisp();
       setTimeout(() => document.body.classList.add('ready'), 50);
@@ -672,6 +684,10 @@ function togglePin13(el) { fetch('/api/pin13?val=' + (el.checked ? 1 : 0)); }
 function toggleSensor(el) { 
   updSensorLbl(el.checked);
   fetch('/api/sensor_mode?val=' + (el.checked ? 1 : 0)); 
+}
+function saveSth(v) {
+  document.getElementById('sth-disp').innerText = v;
+  fetch('/api/settings?sth=' + v);
 }
 function updSensorLbl(isOn) {
   const el = document.getElementById('sensor-lbl');
@@ -695,7 +711,8 @@ function updTimeDisp() {
   if (isRunning) return; 
   const h = parseFloat(document.getElementById('inp-hold').value) || 0.5;
   const r = parseFloat(document.getElementById('inp-reach').value) || 0.5;
-  const total = tgtCount * (h + r + 0.3);
+  // 初回のPREPARE時間(0.3s)を追加
+  const total = (tgtCount * ((r * 2) + h + 0.3)) + 0.3;
   document.getElementById('time-display').innerText = fmtTime(Math.ceil(total));
   // sessionTotalDur = total; // 修正
 }
@@ -812,7 +829,8 @@ function start() {
 
   const h = parseFloat(document.getElementById('inp-hold').value) || 0.5;
   const r = parseFloat(document.getElementById('inp-reach').value) || 0.5;
-  sessionTotalDur = tgtCount * (h + r + 0.3);
+  // 初回PREPARE分を加算
+  sessionTotalDur = (tgtCount * ((r * 2) + h + 0.3)) + 0.3;
   if(sessionTotalDur < 1) sessionTotalDur = 1;
 
   // プリセット名も送信
@@ -1052,6 +1070,7 @@ unsigned long lastDistanceMeasure = 0;
 void setServoAngleSafe(int servoNum, int targetAngle);
 
 bool sensorEnabled = false;
+float sensorThreshold = 10.0; // Default 10cm
 
 // --- 履歴構造体 ---
 struct HistoryItem {
@@ -1168,16 +1187,33 @@ void setServoAngleSafe(int servoNum, int targetAngle) {
   }
 }
 
-float measureDistance() {
-  digitalWrite(TRIG_PIN, LOW);
+// Helper for raw read
+float readRawDistance() {
+  digitalWrite(32, LOW); // TRIG
   delayMicroseconds(2);
-  digitalWrite(TRIG_PIN, HIGH);
+  digitalWrite(32, HIGH);
   delayMicroseconds(10);
-  digitalWrite(TRIG_PIN, LOW);
+  digitalWrite(32, LOW);
 
-  long duration = pulseIn(ECHO_PIN, HIGH, 30000);
-  float distance = duration * 0.034 / 2.0;
-  return distance;
+  long duration = pulseIn(33, HIGH, 15000); // 15ms timeout (approx 2.5m)
+  if (duration == 0)
+    return 999.0;
+  return duration * 0.034 / 2.0;
+}
+
+float measureDistance() {
+  // Simple Median Filter (3 samples)
+  float d1 = readRawDistance();
+  delay(2);
+  float d2 = readRawDistance();
+  delay(2);
+  float d3 = readRawDistance();
+
+  if ((d1 <= d2 && d2 <= d3) || (d3 <= d2 && d2 <= d1))
+    return d2;
+  if ((d2 <= d1 && d1 <= d3) || (d3 <= d1 && d1 <= d2))
+    return d1;
+  return d3;
 }
 
 // API: Start
@@ -1228,12 +1264,17 @@ void handleApiSettings() {
     targetStrength = server.arg("str").toInt();
   if (server.hasArg("cnt"))
     targetCount = server.arg("cnt").toInt();
+  if (server.hasArg("sth")) {
+    sensorThreshold = server.arg("sth").toFloat();
+    preferences.putFloat("sth", sensorThreshold);
+  }
 
   String json = "{";
   json += "\"hold\":" + String(holdTimeSec) + ",";
   json += "\"reach\":" + String(reachTimeSec) + ",";
   json += "\"pin13\":" + String(pin13State) + ",";
-  json += "\"sensor\":" + String(sensorEnabled);
+  json += "\"sensor\":" + String(sensorEnabled) + ",";
+  json += "\"sth\":" + String(sensorThreshold);
   json += "}";
   server.send(200, "application/json", json);
 }
@@ -1270,8 +1311,9 @@ void handleApiStatus() {
     break;
   }
 
-  float cycleDur = reachTimeSec + holdTimeSec + 0.3;
-  float totalDur = targetCount * cycleDur;
+  float cycleDur = (reachTimeSec * 2) + holdTimeSec + 0.3;
+  // Add initial PREPARE state duration (0.3s) and 10% buffer for sensor delay
+  float totalDur = ((targetCount * cycleDur) + 0.3) * 1.1;
 
   String json = "{";
   json += "\"state\":\"" + s + "\",";
@@ -1511,6 +1553,7 @@ void setup() {
   servo3Offset = preferences.getInt("servo3Off", 0);
 
   sensorEnabled = preferences.getBool("sensor", false);
+  sensorThreshold = preferences.getFloat("sth", 10.0);
 
   minAngle1 = preferences.getInt("minAng1", 0);
   maxAngle1 = preferences.getInt("maxAng1", 270);
@@ -1581,14 +1624,14 @@ void loop() {
 
   unsigned long now = millis();
 
-  // HC-SR04センサー測定 (1秒ごと)
-  if (now - lastDistanceMeasure > 1000) {
+  // HC-SR04センサー測定 (200msごと)
+  if (now - lastDistanceMeasure > 200) {
     currentDistance = measureDistance();
     lastDistanceMeasure = now;
 
     // Sensor Trigger
-    if (sensorEnabled && currentState == IDLE && currentDistance < 10.0 &&
-        currentDistance > 0.1) {
+    if (sensorEnabled && currentState == IDLE &&
+        currentDistance < sensorThreshold && currentDistance > 0.1) {
       Serial.printf("Sensor Trigger: %.1f cm -> START\n", currentDistance);
       currentCycle = 0;
       sessionStartTime = millis();
