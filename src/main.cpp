@@ -136,7 +136,7 @@ body.offline::after {
 
 /* Time Display */
 .time-big {
-  font-size: clamp(4.0rem, 18vw, 5.5rem); 
+  font-size: clamp(3.0rem, 15vw, 4.5rem); /* Reduced size */
   font-weight: 800; 
   font-variant-numeric: tabular-nums; 
   letter-spacing: -2px; line-height: 1;
@@ -376,7 +376,7 @@ input:checked + .slider:before { transform: translateX(22px); }
     <div style="display:flex; align-items:center; gap:8px;">
       <div class="conn-dot" id="conn-dot"></div>
       <h1 style="line-height:1; margin:0;">にぎにぎ</h1>
-      <span style="font-size:0.75rem; color:var(--text-sub); font-family:monospace; padding-top:4px;">v1.54</span>
+      <span style="font-size:0.75rem; color:var(--text-sub); font-family:monospace; padding-top:4px;">v1.55</span>
     </div>
 
     <!-- Sensor Control -->
@@ -468,7 +468,7 @@ input:checked + .slider:before { transform: translateX(22px); }
     <div class="setting-item">
       <span class="s-label">システム情報</span>
       <div style="margin-top:8px; font-size:0.9rem; color:var(--text-sub);">
-        <div>Version: <span style="font-family:monospace;">1.54</span></div>
+        <div>Version: <span style="font-family:monospace;">1.55</span></div>
         <div>Build: <span style="font-family:monospace;">{{BUILD_TIME}}</span></div>
         <div>IP: <span style="font-family:monospace;" id="ip-disp">...</span></div>
       </div>
@@ -594,6 +594,16 @@ input:checked + .slider:before { transform: translateX(22px); }
       </div>
       <input type="range" min="1" max="50" step="0.5" value="10" id="inp-sth" oninput="saveSth(this.value)" style="width:100%;">
     </div>
+    <!-- マイプリセット -->
+    <div class="setting-item" style="border-top: 4px solid #f2f2f7; margin-top:20px; padding-top:20px;">
+      <div class="s-header">
+        <span class="s-label">マイプリセット (保存/読込)</span>
+        <button onclick="saveMyPreset()" style="padding:6px 12px; border-radius:16px; background:var(--accent-blue); color:white; border:none; font-weight:bold; font-size:0.85rem;">保存</button>
+      </div>
+      <div id="my-preset-list" style="display:flex; flex-direction:column; gap:10px;">
+        <!-- JSで生成 -->
+      </div>
+    </div>
   </div>
 </div>
 
@@ -671,6 +681,7 @@ function fetchSettings() {
       }
       
       updTimeDisp();
+      renderMyPresets(); // Load presets
       setTimeout(() => document.body.classList.add('ready'), 50);
     }).catch(e => {
         updTimeDisp();
@@ -993,6 +1004,91 @@ function fetchServoOffsets() {
       })
       .catch(e => console.error(`Failed to fetch servo ${i} offset:`, e));
   }
+}
+
+// --- My Presets (LocalStorage) ---
+function saveMyPreset() {
+  const name = prompt("設定名を入力してください", "設定 " + (new Date().toLocaleString()));
+  if(!name) return;
+  
+  const preset = {
+    name: name,
+    hold: document.getElementById('inp-hold').value,
+    reach: document.getElementById('inp-reach').value,
+    str: document.getElementById('inp-str').value,
+    count: tgtCount,
+    sth: document.getElementById('inp-sth').value,
+    // Add other params if needed
+  };
+  
+  const list = JSON.parse(localStorage.getItem('onigiri_presets') || "[]");
+  list.push(preset);
+  localStorage.setItem('onigiri_presets', JSON.stringify(list));
+  renderMyPresets();
+}
+
+function loadMyPreset(idx) {
+  const list = JSON.parse(localStorage.getItem('onigiri_presets') || "[]");
+  const p = list[idx];
+  if(!p) return;
+  
+  if(confirm(`「${p.name}」を読み込みますか？`)) {
+    document.getElementById('inp-hold').value = p.hold;
+    document.getElementById('inp-reach').value = p.reach;
+    document.getElementById('inp-str').value = p.str;
+    document.getElementById('inp-sth').value = p.sth || 10;
+    
+    // Apply changes
+    saveHold(p.hold);
+    saveReach(p.reach);
+    saveSth(p.sth || 10);
+    
+    // UI update
+    updVal('str-disp', p.str, '%');
+    document.getElementById('sth-disp').innerText = p.sth || 10;
+    
+    // Set Count
+    tgtCount = p.count;
+    document.querySelectorAll('.chk-btn').forEach(b => {
+      if(parseInt(b.innerText) == p.count) b.classList.add('active');
+      else b.classList.remove('active');
+    });
+    
+    updTimeDisp();
+    alert("読み込みました");
+  }
+}
+
+function deleteMyPreset(idx) {
+  if(!confirm("削除しますか？")) return;
+  const list = JSON.parse(localStorage.getItem('onigiri_presets') || "[]");
+  list.splice(idx, 1);
+  localStorage.setItem('onigiri_presets', JSON.stringify(list));
+  renderMyPresets();
+}
+
+function renderMyPresets() {
+  const list = JSON.parse(localStorage.getItem('onigiri_presets') || "[]");
+  const container = document.getElementById('my-preset-list');
+  container.innerHTML = "";
+  
+  if(list.length === 0) {
+    container.innerHTML = "<div style='color:#ccc; font-size:0.85rem; text-align:center;'>保存された設定はありません</div>";
+    return;
+  }
+  
+  list.forEach((p, i) => {
+    const row = document.createElement('div');
+    row.style = "display:flex; justify-content:space-between; align-items:center; background:#fff; padding:10px; border-radius:12px; border:1px solid #eee;";
+    row.innerHTML = `
+      <div style="font-weight:bold; font-size:0.95rem;">${p.name}</div>
+      <div style="display:flex; gap:8px;">
+        <button onclick="loadMyPreset(${i})" style="background:#56d364; color:white; border:none; padding:6px 12px; border-radius:14px; font-weight:bold; font-size:0.8rem;">適用</button>
+        <button onclick="deleteMyPreset(${i})" style="background:#ff3b30; color:white; border:none; padding:6px 12px; border-radius:14px; font-weight:bold; font-size:0.8rem;">削除</button>
+      </div>
+    `;
+    container.appendChild(row);
+  });
 }
 
 // センサー距離更新（1秒ごと）
