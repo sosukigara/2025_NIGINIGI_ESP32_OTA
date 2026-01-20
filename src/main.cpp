@@ -376,7 +376,7 @@ input:checked + .slider:before { transform: translateX(22px); }
     <div style="display:flex; align-items:center; gap:8px;">
       <div class="conn-dot" id="conn-dot"></div>
       <h1 style="line-height:1; margin:0;">にぎにぎ</h1>
-      <span style="font-size:0.75rem; color:var(--text-sub); font-family:monospace; padding-top:4px;">v1.51</span>
+      <span style="font-size:0.75rem; color:var(--text-sub); font-family:monospace; padding-top:4px;">v1.53</span>
     </div>
 
     <!-- Sensor Control -->
@@ -468,7 +468,7 @@ input:checked + .slider:before { transform: translateX(22px); }
     <div class="setting-item">
       <span class="s-label">システム情報</span>
       <div style="margin-top:8px; font-size:0.9rem; color:var(--text-sub);">
-        <div>Version: <span style="font-family:monospace;">1.51</span></div>
+        <div>Version: <span style="font-family:monospace;">1.53</span></div>
         <div>Build: <span style="font-family:monospace;">{{BUILD_TIME}}</span></div>
         <div>IP: <span style="font-family:monospace;" id="ip-disp">...</span></div>
       </div>
@@ -711,8 +711,8 @@ function updTimeDisp() {
   if (isRunning) return; 
   const h = parseFloat(document.getElementById('inp-hold').value) || 0.5;
   const r = parseFloat(document.getElementById('inp-reach').value) || 0.5;
-  // 初回のPREPARE時間(0.3s)を追加 + バッファ1.1倍 (サーバーと合わせる)
-  const total = ((tgtCount * ((r * 2) + h + 0.3)) + 0.3) * 1.1;
+  // 理論値(WAIT除外) + マージン(0.5s) → 余り時間を消すための短め設定
+  const total = (tgtCount * ((r * 2) + h)) + 0.5;
   document.getElementById('time-display').innerText = fmtTime(Math.ceil(total));
   // sessionTotalDur = total; // 修正
 }
@@ -829,8 +829,8 @@ function start() {
 
   const h = parseFloat(document.getElementById('inp-hold').value) || 0.5;
   const r = parseFloat(document.getElementById('inp-reach').value) || 0.5;
-  // 初回PREPARE分を加算 + バッファ1.1倍
-  sessionTotalDur = ((tgtCount * ((r * 2) + h + 0.3)) + 0.3) * 1.1;
+  // 理論値(WAIT除外) + マージン
+  sessionTotalDur = (tgtCount * ((r * 2) + h)) + 0.5;
   if(sessionTotalDur < 1) sessionTotalDur = 1;
 
   // プリセット名も送信
@@ -1328,9 +1328,9 @@ void handleApiStatus() {
     break;
   }
 
-  float cycleDur = (reachTimeSec * 2) + holdTimeSec + 0.3;
-  // Add initial PREPARE state duration (0.3s) and 10% buffer for sensor delay
-  float totalDur = ((targetCount * cycleDur) + 0.3) * 1.1;
+  // Exclude WAIT time (0.3s) to prevent timer remaining at the end
+  float cycleDur = (reachTimeSec * 2) + holdTimeSec;
+  float totalDur = (targetCount * cycleDur) + 0.5;
 
   String json = "{";
   json += "\"state\":\"" + s + "\",";
