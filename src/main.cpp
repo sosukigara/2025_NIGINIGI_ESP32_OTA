@@ -376,7 +376,7 @@ input:checked + .slider:before { transform: translateX(22px); }
       <div class="conn-dot" id="conn-dot"></div>
       <div style="display:flex; flex-direction:column;">
         <h1 style="line-height:1;">にぎにぎ</h1>
-        <span style="font-size:0.75rem; color:var(--text-sub); font-family:monospace;">v1.43</span>
+        <span style="font-size:0.75rem; color:var(--text-sub); font-family:monospace;">v1.44</span>
       </div>
     </div>
     <div class="header-actions">
@@ -458,7 +458,7 @@ input:checked + .slider:before { transform: translateX(22px); }
     <div class="setting-item">
       <span class="s-label">システム情報</span>
       <div style="margin-top:8px; font-size:0.9rem; color:var(--text-sub);">
-        <div>Version: <span style="font-family:monospace;">1.43</span></div>
+        <div>Version: <span style="font-family:monospace;">1.44</span></div>
         <div>Build: <span style="font-family:monospace;">{{BUILD_TIME}}</span></div>
         <div>IP: <span style="font-family:monospace;" id="ip-disp">...</span></div>
       </div>
@@ -482,6 +482,17 @@ input:checked + .slider:before { transform: translateX(22px); }
       </label>
     </div>
     
+    <!-- 位置補正スライダー -->
+    <div class="setting-item">
+      <div class="s-header">
+        <span class="s-label">位置補正 (-90 ~ +90)</span>
+        <span class="s-val" id="offset-disp">0</span>
+      </div>
+      <input type="range" min="-90" max="90" value="0" step="1" id="inp-offset" oninput="updateAngleOffset(this.value)" style="width:100%;">
+      <div style="font-size:0.8rem; color:var(--text-sub); margin-top:4px;">
+        システム全体の角度を一括調整します
+      </div>
+    </div>
     
     <div class="setting-item">
       <div class="s-header">
@@ -840,6 +851,26 @@ function setServo(servoNum, angle) {
   document.getElementById(`servo${servoNum}-val`).innerText = angle + '°';
   fetch(`/api/servo_individual?servo=${servoNum}&angle=${angle}`);
 }
+
+// 位置補正機能
+function updateAngleOffset(value) {
+  document.getElementById('offset-disp').innerText = value;
+  fetch(`/api/angle_offset?value=${value}`)
+    .then(r => r.text())
+    .then(d => console.log('Angle Offset updated:', value));
+}
+
+// 初期化時に位置補正値を読み込む
+function fetchSettings() {
+  fetch('/api/angle_offset')
+    .then(r => r.json())
+    .then(data => {
+      const offset = data.angleOffset || 0;
+      document.getElementById('inp-offset').value = offset;
+      document.getElementById('offset-disp').innerText = offset;
+    })
+    .catch(e => console.error('Failed to fetch angle offset:', e));
+}
 </script>
 </body>
 </html>
@@ -859,6 +890,21 @@ const int PIN_SERVO3 = 27;
 const int US_AT_0_DEG = 500;    // 0度 (閉/強)
 const int US_AT_270_DEG = 2500; // 270度 (開/弱)
 const unsigned long DETACH_DELAY_MS = 5000;
+
+// --- 位置補正（グローバル角度オフセット） ---
+int globalAngleOffset = 0; // -90 ~ +90の範囲で調整可能
+
+// オフセットを適用した角度を取得
+int getRelaxAngle() {
+  return 270 - globalAngleOffset; // リラックス位置（開いた状態）
+}
+
+int getSqueezeAngle(int strength) {
+  // strengthは0~100
+  // 0% → 270度, 100% → 180度
+  int baseAngle = 270 - (90 * strength / 100);
+  return baseAngle - globalAngleOffset;
+}
 
 // --- 履歴構造体 ---
 struct HistoryItem {
@@ -907,7 +953,13 @@ int strengthToUs(int strength) {
   if (strength > 100)
     strength = 100;
   // 270度(開) → 90度(最大閉) の範囲に制限
-  int targetAngle = map(strength, 0, 100, 270, 90);
+  int baseAngle = map(strength, 0, 100, 270, 90);
+  int targetAngle = baseAngle - globalAngleOffset; // オフセット適用
+  // 範囲制限
+  if (targetAngle < 0)
+    targetAngle = 0;
+  if (targetAngle > 270)
+    targetAngle = 270;
   return map(targetAngle, 0, 270, US_AT_0_DEG, US_AT_270_DEG);
 }
 
@@ -1134,6 +1186,27 @@ void handleApiHistory() {
   server.send(200, "application/json", json);
 }
 
+void handleApiAngleOffset() {
+  if (server.hasArg("value")) {
+    // POST: 設定
+    int value = server.arg("value").toInt();
+    if (value >= -90 && value <= 90) {
+      globalAngleOffset = value;
+      preferences.putInt("angleOffset", globalAngleOffset);
+      Serial.printf("[API] Angle Offset set to: %d\n", globalAngleOffset);
+      server.send(200, "text/plain", "OK");
+    } else {
+      server.send(400, "text/plain", "範囲エラー: -90 ~ +90");
+    }
+  } else {
+    // GET: 取得
+    String json = "{";
+    json += "\"angleOffset\":" + String(globalAngleOffset);
+    json += "}";
+    server.send(200, "application/json", json);
+  }
+}
+
 void handleRoot() {
   String html = html_main;
   html.replace("{{BUILD_TIME}}", __DATE__ " " __TIME__);
@@ -1147,6 +1220,8 @@ void setup() {
   holdTimeSec = preferences.getFloat("hold", 0.5);
   reachTimeSec = preferences.getFloat("reach", 0.5);
   pin13State = preferences.getInt("pin13", 0);
+  globalAngleOffset =
+      preferences.getInt("angleOffset", 0); // 位置補正を読み込み
 
   pinMode(13, OUTPUT);
 
@@ -1162,7 +1237,7 @@ void setup() {
   servo3.setPeriodHertz(50);
 
   attachAllServos();
-  setAllServosAngle(270);
+  setAllServosAngle(getRelaxAngle()); // オフセット適用済みの位置で初期化
 
   // --- AP Mode Setup (Yakisoba-Shiro) ---
   WiFi.disconnect(true);
@@ -1188,6 +1263,7 @@ void setup() {
   server.on("/api/servo_all", handleApiServoAll);
   server.on("/api/servo_individual", handleApiServoIndividual);
   server.on("/api/history", handleApiHistory);
+  server.on("/api/angle_offset", handleApiAngleOffset); // 位置補正API
 
   // Captive Portal Redirect
   server.onNotFound([]() { handleRoot(); });
@@ -1220,7 +1296,7 @@ void loop() {
     break;
 
   case PREPARE_SQUEEZE:
-    setAllServosAngle(270);
+    setAllServosAngle(getRelaxAngle());
     if (now - stateStartTime > 300) {
       currentState = SQUEEZING;
     }
@@ -1252,7 +1328,7 @@ void loop() {
     break;
 
   case RELEASING:
-    setAllServosAngle(270);
+    setAllServosAngle(getRelaxAngle());
     if (now - stateStartTime >= 300) {
       currentState = WAIT_CYCLE;
     }
@@ -1265,7 +1341,7 @@ void loop() {
       currentState = SQUEEZING;
     } else {
       Serial.println("Finished.");
-      setAllServosAngle(270);
+      setAllServosAngle(getRelaxAngle());
       currentState = IDLE;
 
       // --- 履歴保存 ---
