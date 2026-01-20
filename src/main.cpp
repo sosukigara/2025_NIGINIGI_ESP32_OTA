@@ -376,7 +376,7 @@ input:checked + .slider:before { transform: translateX(22px); }
     <div style="display:flex; align-items:center; gap:8px;">
       <div class="conn-dot" id="conn-dot"></div>
       <h1 style="line-height:1; margin:0;">にぎにぎ</h1>
-      <span style="font-size:0.75rem; color:var(--text-sub); font-family:monospace; padding-top:4px;">v1.53</span>
+      <span style="font-size:0.75rem; color:var(--text-sub); font-family:monospace; padding-top:4px;">v1.54</span>
     </div>
 
     <!-- Sensor Control -->
@@ -468,7 +468,7 @@ input:checked + .slider:before { transform: translateX(22px); }
     <div class="setting-item">
       <span class="s-label">システム情報</span>
       <div style="margin-top:8px; font-size:0.9rem; color:var(--text-sub);">
-        <div>Version: <span style="font-family:monospace;">1.53</span></div>
+        <div>Version: <span style="font-family:monospace;">1.54</span></div>
         <div>Build: <span style="font-family:monospace;">{{BUILD_TIME}}</span></div>
         <div>IP: <span style="font-family:monospace;" id="ip-disp">...</span></div>
       </div>
@@ -477,6 +477,39 @@ input:checked + .slider:before { transform: translateX(22px); }
     <div class="setting-item" style="flex-direction:row; align-items:center; justify-content:space-between;">
       <span class="s-label">保持時間 (秒)</span>
       <input type="number" id="inp-hold" value="0.5" step="0.1" style="width:80px; padding:12px; border-radius:12px; border:1px solid #ddd; text-align:center; font-size:1.1rem; font-weight:700;" onchange="saveHold(this.value)">
+    </div>
+
+    <!-- 手動調整 -->
+    <div class="setting-item">
+      <div class="s-header">
+        <span class="s-label">全サーボ同時調整 (90-270度)</span>
+        <span class="s-val" id="all-servo-val">270°</span>
+      </div>
+      <input type="range" min="90" max="270" value="270" step="1" oninput="setAllServos(this.value)" style="width:100%;">
+    </div>
+
+    <div class="setting-item">
+      <div class="s-header">
+        <span class="s-label">サーボ1 (GPIO 18)</span>
+        <span class="s-val" id="servo1-val">270°</span>
+      </div>
+      <input type="range" id="inp-servo-1" min="90" max="270" value="270" step="1" oninput="setServo(1, this.value)" style="width:100%;">
+    </div>
+
+    <div class="setting-item">
+      <div class="s-header">
+        <span class="s-label">サーボ2 (GPIO 26)</span>
+        <span class="s-val" id="servo2-val">270°</span>
+      </div>
+      <input type="range" id="inp-servo-2" min="90" max="270" value="270" step="1" oninput="setServo(2, this.value)" style="width:100%;">
+    </div>
+
+    <div class="setting-item">
+      <div class="s-header">
+        <span class="s-label">サーボ3 (GPIO 27)</span>
+        <span class="s-val" id="servo3-val">270°</span>
+      </div>
+      <input type="range" id="inp-servo-3" min="90" max="270" value="270" step="1" oninput="setServo(3, this.value)" style="width:100%;">
     </div>
 
     <div class="setting-item" style="flex-direction:row; align-items:center; justify-content:space-between;">
@@ -490,22 +523,6 @@ input:checked + .slider:before { transform: translateX(22px); }
         <input type="checkbox" id="chk-pin13" onchange="togglePin13(this)">
         <span class="slider round"></span>
       </label>
-    </div>
-    
-    <!-- センサー距離表示 -->
-    <div class="setting-item">
-      <span class="s-label">センサー距離</span>
-      <div style="font-size:1.5rem; font-weight:700; color:var(--accent-purple); margin-top:8px;">
-        <span id="distance-disp">--</span> cm
-      </div>
-    </div>
-    
-    <div class="setting-item">
-      <div class="s-header">
-        <span class="s-label">センサーしきい値 (cm)</span>
-        <span class="s-val" id="sth-disp">10.0</span>
-      </div>
-      <input type="range" min="1" max="50" step="0.5" value="10" id="inp-sth" oninput="saveSth(this.value)" style="width:100%;">
     </div>
     
     <!-- 個別サーボ位置補正 -->
@@ -562,36 +579,20 @@ input:checked + .slider:before { transform: translateX(22px); }
       </div>
     </div>
     
+    <!-- センサー距離表示 -->
     <div class="setting-item">
-      <div class="s-header">
-        <span class="s-label">全サーボ同時調整 (90-270度)</span>
-        <span class="s-val" id="all-servo-val">270°</span>
+      <span class="s-label">センサー距離</span>
+      <div style="font-size:1.5rem; font-weight:700; color:var(--accent-purple); margin-top:8px;">
+        <span id="distance-disp">--</span> cm
       </div>
-      <input type="range" min="90" max="270" value="270" step="1" oninput="setAllServos(this.value)" style="width:100%;">
     </div>
-
+    
     <div class="setting-item">
       <div class="s-header">
-        <span class="s-label">サーボ1 (GPIO 18)</span>
-        <span class="s-val" id="servo1-val">270°</span>
+        <span class="s-label">センサーしきい値 (cm)</span>
+        <span class="s-val" id="sth-disp">10.0</span>
       </div>
-      <input type="range" min="90" max="270" value="270" step="1" oninput="setServo(1, this.value)" style="width:100%;">
-    </div>
-
-    <div class="setting-item">
-      <div class="s-header">
-        <span class="s-label">サーボ2 (GPIO 26)</span>
-        <span class="s-val" id="servo2-val">270°</span>
-      </div>
-      <input type="range" min="90" max="270" value="270" step="1" oninput="setServo(2, this.value)" style="width:100%;">
-    </div>
-
-    <div class="setting-item">
-      <div class="s-header">
-        <span class="s-label">サーボ3 (GPIO 27)</span>
-        <span class="s-val" id="servo3-val">270°</span>
-      </div>
-      <input type="range" min="90" max="270" value="270" step="1" oninput="setServo(3, this.value)" style="width:100%;">
+      <input type="range" min="1" max="50" step="0.5" value="10" id="inp-sth" oninput="saveSth(this.value)" style="width:100%;">
     </div>
   </div>
 </div>
@@ -959,9 +960,11 @@ function closeCompletionModal() {
 
 function setAllServos(angle) {
   document.getElementById('all-servo-val').innerText = angle + '°';
-  document.getElementById('servo1-val').innerText = angle + '°';
-  document.getElementById('servo2-val').innerText = angle + '°';
-  document.getElementById('servo3-val').innerText = angle + '°';
+  for(let i=1; i<=3; i++) {
+    document.getElementById('servo'+i+'-val').innerText = angle + '°';
+    const el = document.getElementById('inp-servo-'+i);
+    if(el) el.value = angle;
+  }
   fetch(`/api/servo_all?angle=${angle}`);
 }
 
