@@ -376,7 +376,7 @@ input:checked + .slider:before { transform: translateX(22px); }
     <div style="display:flex; align-items:center; gap:8px;">
       <div class="conn-dot" id="conn-dot"></div>
       <h1 style="line-height:1; margin:0;">にぎにぎ</h1>
-      <span style="font-size:0.75rem; color:var(--text-sub); font-family:monospace; padding-top:4px;">v1.50</span>
+      <span style="font-size:0.75rem; color:var(--text-sub); font-family:monospace; padding-top:4px;">v1.51</span>
     </div>
 
     <!-- Sensor Control -->
@@ -468,7 +468,7 @@ input:checked + .slider:before { transform: translateX(22px); }
     <div class="setting-item">
       <span class="s-label">システム情報</span>
       <div style="margin-top:8px; font-size:0.9rem; color:var(--text-sub);">
-        <div>Version: <span style="font-family:monospace;">1.50</span></div>
+        <div>Version: <span style="font-family:monospace;">1.51</span></div>
         <div>Build: <span style="font-family:monospace;">{{BUILD_TIME}}</span></div>
         <div>IP: <span style="font-family:monospace;" id="ip-disp">...</span></div>
       </div>
@@ -892,6 +892,11 @@ function syncStatus() {
         }
         // サーバーからの所要時間で更新
         if(d.dur && d.dur > 0) sessionTotalDur = d.dur;
+        
+        // 詳細情報の同期 (完了画面用)
+        if(d.preset) runPreset = d.preset;
+        if(d.str) runStrength = d.str;
+        if(d.total) runCount = d.total;
 
         let txt = "動作中";
         if(d.state === 'PREPARE_SQUEEZE') txt = "準備中...";
@@ -1073,6 +1078,7 @@ void setServoAngleSafe(int servoNum, int targetAngle);
 
 bool sensorEnabled = false;
 float sensorThreshold = 10.0; // Default 10cm
+int sensorTriggerCount = 0;   // 連続検知カウンタ
 
 // --- 履歴構造体 ---
 struct HistoryItem {
@@ -1095,6 +1101,7 @@ unsigned long sessionStartTime = 0;
 // パラメータ
 float holdTimeSec = 0.5;
 float reachTimeSec = 0.5;
+
 int targetStrength = 50;
 int targetCount = 3;
 int currentCycle = 0;
@@ -1204,18 +1211,26 @@ float readRawDistance() {
 }
 
 float measureDistance() {
-  // Simple Median Filter (3 samples)
-  float d1 = readRawDistance();
-  delay(2);
-  float d2 = readRawDistance();
-  delay(2);
-  float d3 = readRawDistance();
+  // Enhanced Median Filter (5 samples)
+  float readings[5];
+  for (int i = 0; i < 5; i++) {
+    readings[i] = readRawDistance();
+    delay(2);
+  }
 
-  if ((d1 <= d2 && d2 <= d3) || (d3 <= d2 && d2 <= d1))
-    return d2;
-  if ((d2 <= d1 && d1 <= d3) || (d3 <= d1 && d1 <= d2))
-    return d1;
-  return d3;
+  // Simple Bubble Sort
+  for (int i = 0; i < 4; i++) {
+    for (int j = 0; j < 4 - i; j++) {
+      if (readings[j] > readings[j + 1]) {
+        float temp = readings[j];
+        readings[j] = readings[j + 1];
+        readings[j + 1] = temp;
+      }
+    }
+  }
+
+  // Return Median
+  return readings[2];
 }
 
 // API: Start
@@ -1323,7 +1338,9 @@ void handleApiStatus() {
   json += "\"total\":" + String(targetCount) + ",";
   json += "\"elap\":" + String(millis() - sessionStartTime) + ",";
   json += "\"pin13\":" + String(pin13State) + ",";
-  json += "\"dur\":" + String(totalDur);
+  json += "\"dur\":" + String(totalDur) + ",";
+  json += "\"preset\":\"" + currentSessionPreset + "\",";
+  json += "\"str\":" + String(targetStrength);
   json += "}";
   server.send(200, "application/json", json);
 }
@@ -1631,13 +1648,25 @@ void loop() {
     currentDistance = measureDistance();
     lastDistanceMeasure = now;
 
-    // Sensor Trigger
-    if (sensorEnabled && currentState == IDLE &&
-        currentDistance < sensorThreshold && currentDistance > 0.1) {
-      Serial.printf("Sensor Trigger: %.1f cm -> START\n", currentDistance);
-      currentCycle = 0;
-      sessionStartTime = millis();
-      currentState = PREPARE_SQUEEZE;
+    // Sensor Trigger Logic (Consecutive Check)
+    if (sensorEnabled && currentState == IDLE) {
+      if (currentDistance < sensorThreshold && currentDistance > 0.1) {
+        sensorTriggerCount++;
+        Serial.printf("Sensor Detect: %.1f cm (Count: %d)\n", currentDistance,
+                      sensorTriggerCount);
+
+        // 3回連続検知 (approx 600ms) で開始
+        if (sensorTriggerCount >= 3) {
+          Serial.println(">>> Sensor START Triggered");
+          sensorTriggerCount = 0;
+          currentCycle = 0;
+          sessionStartTime = millis();
+          currentState = PREPARE_SQUEEZE;
+          currentSessionPreset = "センサー自動";
+        }
+      } else {
+        sensorTriggerCount = 0;
+      }
     }
   }
 
