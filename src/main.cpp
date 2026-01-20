@@ -376,7 +376,7 @@ input:checked + .slider:before { transform: translateX(22px); }
       <div class="conn-dot" id="conn-dot"></div>
       <div style="display:flex; flex-direction:column;">
         <h1 style="line-height:1;">にぎにぎ</h1>
-        <span style="font-size:0.75rem; color:var(--text-sub); font-family:monospace;">v1.42</span>
+        <span style="font-size:0.75rem; color:var(--text-sub); font-family:monospace;">v1.43</span>
       </div>
     </div>
     <div class="header-actions">
@@ -458,7 +458,7 @@ input:checked + .slider:before { transform: translateX(22px); }
     <div class="setting-item">
       <span class="s-label">システム情報</span>
       <div style="margin-top:8px; font-size:0.9rem; color:var(--text-sub);">
-        <div>Version: <span style="font-family:monospace;">1.42</span></div>
+        <div>Version: <span style="font-family:monospace;">1.43</span></div>
         <div>Build: <span style="font-family:monospace;">{{BUILD_TIME}}</span></div>
         <div>IP: <span style="font-family:monospace;" id="ip-disp">...</span></div>
       </div>
@@ -1216,6 +1216,7 @@ void loop() {
   switch (currentState) {
   case IDLE:
     // Auto Detach Removed as per user request
+    yield(); // Watchdog reset
     break;
 
   case PREPARE_SQUEEZE:
@@ -1223,6 +1224,7 @@ void loop() {
     if (now - stateStartTime > 300) {
       currentState = SQUEEZING;
     }
+    yield(); // Watchdog reset
     break;
 
   case SQUEEZING: {
@@ -1239,12 +1241,14 @@ void loop() {
       int currentUs = startUs + (targetUs - startUs) * progress;
       setAllServosUs(currentUs);
     }
+    yield(); // Watchdog reset
   } break;
 
   case HOLDING:
     if (now - stateStartTime >= (holdTimeSec * 1000)) {
       currentState = RELEASING;
     }
+    yield(); // Watchdog reset
     break;
 
   case RELEASING:
@@ -1252,6 +1256,7 @@ void loop() {
     if (now - stateStartTime >= 300) {
       currentState = WAIT_CYCLE;
     }
+    yield(); // Watchdog reset
     break;
 
   case WAIT_CYCLE:
@@ -1287,6 +1292,7 @@ void loop() {
       }
       // ----------------
     }
+    yield(); // Watchdog reset
     break;
   }
 }
