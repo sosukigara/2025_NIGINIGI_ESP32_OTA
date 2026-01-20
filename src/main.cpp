@@ -421,7 +421,7 @@ input:checked + .slider:before { transform: translateX(22px); }
     <div style="display:flex; align-items:center; gap:8px;">
       <div class="conn-dot" id="conn-dot"></div>
       <h1 style="line-height:1; margin:0;">にぎにぎ</h1>
-      <span style="font-size:0.75rem; color:var(--text-sub); font-family:monospace; padding-top:4px;">v1.58</span>
+      <span style="font-size:0.75rem; color:var(--text-sub); font-family:monospace; padding-top:4px;">v1.59</span>
     </div>
 
     <!-- Sensor Control -->
@@ -474,7 +474,7 @@ input:checked + .slider:before { transform: translateX(22px); }
         <span class="s-label">握りの強さ</span>
         <span class="s-val" id="str-disp">50%</span>
       </div>
-      <input type="range" id="inp-str" min="0" max="100" value="50" oninput="updVal('str-disp', this.value, '%')">
+      <input type="range" id="inp-str" min="0" max="100" value="50" oninput="updVal('str-disp', this.value, '%')" onchange="saveStr(this.value)">
     </div>
     
     <div class="setting-item" style="flex-direction:row; align-items:center; justify-content:space-between; padding:16px 0;">
@@ -513,7 +513,7 @@ input:checked + .slider:before { transform: translateX(22px); }
     <div class="setting-item">
       <span class="s-label">システム情報</span>
       <div style="margin-top:8px; font-size:0.9rem; color:var(--text-sub);">
-        <div>Version: <span style="font-family:monospace;">1.58</span></div>
+        <div>Version: <span style="font-family:monospace;">1.59</span></div>
         <div>Build: <span style="font-family:monospace;">{{BUILD_TIME}}</span></div>
         <div>IP: <span style="font-family:monospace;" id="ip-disp">...</span></div>
       </div>
@@ -813,6 +813,7 @@ function saveSth(v) {
   document.getElementById('sth-disp').innerText = v;
   fetch('/api/settings?sth=' + v);
 }
+function saveStr(v) { fetch('/api/settings?str=' + v); }
 function updSensorLbl(isOn) {
   const el = document.getElementById('sensor-lbl');
   if(isOn) { el.innerText="ON"; el.style.color="var(--accent-blue)"; }
@@ -1158,6 +1159,8 @@ function loadMyPreset(idx) {
     saveHold(p.hold);
     saveReach(p.reach);
     saveSth(p.sth || 10);
+    // Sync Strength & Count
+    fetch(`/api/settings?str=${p.str}&cnt=${p.count}`).catch(()=>{});
     
     // UI update
     updVal('str-disp', p.str, '%');
